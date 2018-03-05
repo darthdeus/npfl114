@@ -30,20 +30,30 @@ class Network:
             loss = tf.losses.sparse_softmax_cross_entropy(self.labels, output_layer, scope="loss")
             global_step = tf.train.create_global_step()
 
+            if args.optimizer == "SGD" or args.optimizer is None:
+                if args.momentum is not None:
+                    optimizer = tf.train.MomentumOptimizer(learning_rate=args.learning_rate, momentum=args.momentum)
+                else:
+                    optimizer = tf.train.GradientDescentOptimizer(learning_rate=args.learning_rate)
+            elif args.optimizer == "Adam":
+                optimizer = tf.train.AdamOptimizer(learning_rate=args.learning_rate)
+            else:
+                raise RuntimeError("Invalid optimizer")
+
             # TODO: Create `optimizer` according to arguments ("SGD", "SGD" with momentum, or "Adam"),
             # utilizing specified learning rate according to args.learning_rate and args.learning_rate_final.
             self.training = optimizer.minimize(loss, global_step=global_step, name="training")
 
             # Summaries
-            accuracy = tf.reduce_mean(tf.cast(tf.equal(self.labels, self.predictions), tf.float32))
+            self.accuracy = tf.reduce_mean(tf.cast(tf.equal(self.labels, self.predictions), tf.float32))
             summary_writer = tf.contrib.summary.create_file_writer(args.logdir, flush_millis=10 * 1000)
             self.summaries = {}
             with summary_writer.as_default(), tf.contrib.summary.record_summaries_every_n_global_steps(100):
                 self.summaries["train"] = [tf.contrib.summary.scalar("train/loss", loss),
-                                           tf.contrib.summary.scalar("train/accuracy", accuracy)]
+                                           tf.contrib.summary.scalar("train/accuracy", self.accuracy)]
             with summary_writer.as_default(), tf.contrib.summary.always_record_summaries():
                 for dataset in ["dev", "test"]:
-                    self.summaries[dataset] = tf.contrib.summary.scalar(dataset + "/accuracy", accuracy)
+                    self.summaries[dataset] = tf.contrib.summary.scalar(dataset + "/accuracy", self.accuracy)
 
             # Initialize variables
             self.session.run(tf.global_variables_initializer())
@@ -54,7 +64,7 @@ class Network:
         self.session.run([self.training, self.summaries["train"]], {self.images: images, self.labels: labels})
 
     def evaluate(self, dataset, images, labels):
-        self.session.run(self.summaries[dataset], {self.images: images, self.labels: labels})
+        return self.session.run([self.accuracy, self.summaries[dataset]], {self.images: images, self.labels: labels})
 
 
 if __name__ == "__main__":
@@ -71,10 +81,10 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", default=50, type=int, help="Batch size.")
     parser.add_argument("--epochs", default=20, type=int, help="Number of epochs.")
     parser.add_argument("--hidden_layer", default=200, type=int, help="Size of the hidden layer.")
-    parser.add_argument("--learning_rate", default=0.01, type=float, help="Initial learning rate.");
-    parser.add_argument("--learning_rate_final", default=None, type=float, help="Final learning rate.");
-    parser.add_argument("--momentum", default=None, type=float, help="Momentum.");
-    parser.add_argument("--optimizer", default="SGD", type=str, help="Optimizer to use.");
+    parser.add_argument("--learning_rate", default=0.01, type=float, help="Initial learning rate.")
+    parser.add_argument("--learning_rate_final", default=None, type=float, help="Final learning rate.")
+    parser.add_argument("--momentum", default=None, type=float, help="Momentum.")
+    parser.add_argument("--optimizer", default="SGD", type=str, help="Optimizer to use.")
     parser.add_argument("--threads", default=1, type=int, help="Maximum number of threads to use.")
     args = parser.parse_args()
 
@@ -108,8 +118,8 @@ if __name__ == "__main__":
             network.train(images, labels)
 
         network.evaluate("dev", mnist.validation.images, mnist.validation.labels)
-    network.evaluate("test", mnist.test.images, mnist.test.labels)
+    accuracy, _ = network.evaluate("test", mnist.test.images, mnist.test.labels)
 
     # TODO: Compute accuracy on the test set and print it as percentage rounded
-    # to two decimal places.
+    # to two decimal places.    
     print("{:.2f}".format(100 * accuracy))

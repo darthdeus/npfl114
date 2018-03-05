@@ -22,6 +22,28 @@ class Network:
 
             # Computation
             flattened_images = tf.layers.flatten(self.images, name="flatten")
+
+            activations = {
+                "none": None,
+                "relu": tf.nn.relu,
+                "tanh": tf.nn.tanh,
+                "sigmoid": tf.nn.sigmoid,
+            }
+
+            self.training_flag = tf.placeholder_with_default(False, shape=(), name="training")
+
+            if not args.activation in activations.keys():
+                import os
+                print("Invalid activation function, valid values are {}".format(",".join(activations.keys())))
+                os._exit(1)
+
+            hidden_layer = flattened_images
+            for _ in range(args.layers):
+                hidden_layer = tf.layers.dense(hidden_layer, args.hidden_layer, activation=None)
+                # hidden_layer = tf.layers.batch_normalization(hidden_layer, training=self.training_flag)
+                hidden_layer = tf.nn.relu(hidden_layer)
+                # hidden_layer = tf.layers.dropout(hidden_layer, 0.5, training=self.training_flag)
+
             # TODO: add args.layers hidden layers with activations given by
             # args.activation and store results in hidden_layer. Possible
             # activations are none, relu, tanh and sigmoid.
@@ -34,7 +56,7 @@ class Network:
             self.training = tf.train.GradientDescentOptimizer(0.03).minimize(loss, global_step=global_step, name="training")
 
             # Summaries
-            accuracy = tf.reduce_mean(tf.cast(tf.equal(self.labels, self.predictions), tf.float32))
+            self.accuracy = tf.reduce_mean(tf.cast(tf.equal(self.labels, self.predictions), tf.float32))
             confusion_matrix = tf.reshape(tf.confusion_matrix(self.labels, self.predictions,
                                                               weights=tf.not_equal(self.labels, self.predictions), dtype=tf.float32),
                                           [1, self.LABELS, self.LABELS, 1])
@@ -43,11 +65,11 @@ class Network:
             self.summaries = {}
             with summary_writer.as_default(), tf.contrib.summary.record_summaries_every_n_global_steps(100):
                 self.summaries["train"] = [tf.contrib.summary.scalar("train/loss", loss),
-                                           tf.contrib.summary.scalar("train/accuracy", accuracy)]
+                                           tf.contrib.summary.scalar("train/accuracy", self.accuracy)]
             with summary_writer.as_default(), tf.contrib.summary.always_record_summaries():
                 for dataset in ["dev", "test"]:
-                    self.summaries[dataset] = [tf.contrib.summary.scalar(dataset + "/accuracy", accuracy),
-                                               tf.contrib.summary.image(dataset + "/confusion_matrix", confusion_matrix)]
+                    self.summaries[dataset] = [tf.contrib.summary.scalar(dataset + "/accuracy", self.accuracy),
+                                               tf.contrib.summary.image(dataset + "/confusion_matrix", confusion_matrix)]            
 
             # Initialize variables
             self.session.run(tf.global_variables_initializer())
@@ -55,10 +77,11 @@ class Network:
                 tf.contrib.summary.initialize(session=self.session, graph=self.session.graph)
 
     def train(self, images, labels):
-        self.session.run([self.training, self.summaries["train"]], {self.images: images, self.labels: labels})
+        self.session.run([self.training, self.summaries["train"]], {self.images: images, self.labels: labels, self.training_flag: True})
 
     def evaluate(self, dataset, images, labels):
-        self.session.run(self.summaries[dataset], {self.images: images, self.labels: labels})
+        acc, _ = self.session.run([self.accuracy, self.summaries[dataset]], {self.images: images, self.labels: labels, self.training_flag: False})
+        return acc
 
 
 if __name__ == "__main__":
@@ -108,7 +131,9 @@ if __name__ == "__main__":
             network.train(images, labels)
 
         network.evaluate("dev", mnist.validation.images, mnist.validation.labels)
-    network.evaluate("test", mnist.test.images, mnist.test.labels)
+    accuracy = network.evaluate("test", mnist.test.images, mnist.test.labels)
+
+    print("{:.2f}".format(accuracy * 100))
 
     # TODO: Compute and print accuracy on the test set. Print accuracy as
     # percentage rounded on two decimal places, e.g., 91.23

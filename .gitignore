@@ -1,0 +1,3 @@
+*.gz
+.vscode
+.ipynb_checkpoints
