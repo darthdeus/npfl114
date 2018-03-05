@@ -30,6 +30,10 @@ class Network:
             loss = tf.losses.sparse_softmax_cross_entropy(self.labels, output_layer, scope="loss")
             global_step = tf.train.create_global_step()
 
+            decated_learning_rate = learning_rate * decay_rate ^ (global_step / decay_steps)
+
+            tf.train.exponential_decay(args.learning_rate, global_step, )
+
             if args.optimizer == "SGD" or args.optimizer is None:
                 if args.momentum is not None:
                     optimizer = tf.train.MomentumOptimizer(learning_rate=args.learning_rate, momentum=args.momentum)
