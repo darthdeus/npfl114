@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import numpy as np
 import tensorflow as tf
 
@@ -11,7 +10,7 @@ class Network:
         graph = tf.Graph()
         graph.seed = seed
         self.session = tf.Session(graph=graph, config=tf.ConfigProto(inter_op_parallelism_threads=threads,
-                                                                       intra_op_parallelism_threads=threads))
+                                                                     intra_op_parallelism_threads=threads))
 
     def construct(self, args):
         with self.session.graph.as_default():
@@ -20,12 +19,20 @@ class Network:
 
             hidden = self.observations
 
+            activations = {
+                    "relu": tf.nn.relu,
+                    "tanh": tf.nn.tanh,
+                    "sigmoid": tf.nn.sigmoid,
+                    "none": None
+            }
+
+            activation = activations.get(args.activation, None)
+
             self.training_flag = tf.placeholder_with_default(False, (), name="training_flag")
 
             for i in range(args.layers):
                 with tf.name_scope("layer{}".format(i)):
-                    hidden = tf.layers.dense(hidden, args.neurons, activation=tf.nn.relu)
-                    hidden = tf.layers.dropout(hidden, training=self.training_flag)
+                    hidden = tf.layers.dense(hidden, args.neurons, activation=activation)
 
             output_layer = tf.layers.dense(hidden, 2, activation=None)
             # TODO: Define the model, with the output layers for actions in `output_layer`
@@ -94,6 +101,7 @@ if __name__ == "__main__":
     parser.add_argument("--threads", default=1, type=int, help="Maximum number of threads to use.")
     parser.add_argument("--neurons", default=100, type=int, help="Number of neurons in the hidden layers.")
     parser.add_argument("--layers", default=1, type=int, help="Number of hidden layers.")
+    parser.add_argument("--activation", default="none", type=str, help="Activation function, one of 'relu', 'tanh', 'sigmoid', 'none'")
     args = parser.parse_args()
 
     # Create logdir name
@@ -113,31 +121,39 @@ if __name__ == "__main__":
             labels.append(int(columns[4]))
     observations, labels = np.array(observations), np.array(labels)
 
-    idx = np.random.permutation(len(observations))
-
-    split = 0.20
-
-    train_size = int(1 - len(idx) * 0.2)
-    train_idx = idx[:train_size]
-    test_idx = idx[train_size:]
-
-    # print("Splitting train: {}, test: {}".format(len(train_idx), len(test_idx)))
-
-    assert len(train_idx) > len(test_idx)
-
-    X_train, y_train = observations[train_idx], labels[train_idx]
-    X_valid, y_valid = observations[test_idx], labels[test_idx]
 
     # Construct the network
     network = Network(threads=args.threads)
     network.construct(args)
 
+    mb_size = 5
+
     # Train
     for i in range(args.epochs):
-        train_acc = network.train(X_train, y_train)
-        valid_acc = network.evaluate(X_valid, y_valid)
-        if i % 20 == 0:
-            print("Acc: {:.2f}\tValid: {:.2f}".format(train_acc, valid_acc))
+        idx = np.random.permutation(len(observations))
+        masks = np.array_split(idx, mb_size)
+
+        for mask in masks:
+            acc = network.train(observations[mask], labels[mask])
+            print("Acc: {:.2f}".format(acc))
+
+        # split = 0.20
+        #
+        # train_size = int(1 - len(idx) * 0.2)
+        # train_idx = idx[:train_size]
+        # test_idx = idx[train_size:]
+        #
+        # # print("Splitting train: {}, test: {}".format(len(train_idx), len(test_idx)))
+        #
+        # assert len(train_idx) > len(test_idx)
+        #
+        # X_train, y_train = observations[train_idx], labels[train_idx]
+        # X_valid, y_valid = observations[test_idx], labels[test_idx]
+        #
+        # train_acc = network.train(X_train, y_train)
+        # valid_acc = network.evaluate(X_valid, y_valid)
+        # if i % 20 == 0:
+        #     print("Acc: {:.2f}\tValid: {:.2f}".format(train_acc, valid_acc))
 
     # Save the network
     network.save("gym_cartpole/model")

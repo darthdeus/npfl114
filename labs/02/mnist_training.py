@@ -14,7 +14,7 @@ class Network:
         self.session = tf.Session(graph = graph, config=tf.ConfigProto(inter_op_parallelism_threads=threads,
                                                                        intra_op_parallelism_threads=threads))
 
-    def construct(self, args):
+    def construct(self, args, batches_per_epoch):
         with self.session.graph.as_default():
             # Inputs
             self.images = tf.placeholder(tf.float32, [None, self.WIDTH, self.HEIGHT, 1], name="images")
@@ -30,17 +30,23 @@ class Network:
             loss = tf.losses.sparse_softmax_cross_entropy(self.labels, output_layer, scope="loss")
             global_step = tf.train.create_global_step()
 
-            decated_learning_rate = learning_rate * decay_rate ^ (global_step / decay_steps)
+            if args.learning_rate_final is None:
+                learning_rate = args.learning_rate
+            else:
+                decay_steps = args.epochs
+                exp = 1/(decay_steps - 1)
+                decay_rate = np.power(args.learning_rate_final / args.learning_rate, exp)
 
-            tf.train.exponential_decay(args.learning_rate, global_step, )
+                learning_rate = tf.train.exponential_decay(args.learning_rate, global_step,
+                                                           batches_per_epoch, decay_rate, staircase=True)
 
             if args.optimizer == "SGD" or args.optimizer is None:
                 if args.momentum is not None:
-                    optimizer = tf.train.MomentumOptimizer(learning_rate=args.learning_rate, momentum=args.momentum)
+                    optimizer = tf.train.MomentumOptimizer(learning_rate=learning_rate, momentum=args.momentum)
                 else:
-                    optimizer = tf.train.GradientDescentOptimizer(learning_rate=args.learning_rate)
+                    optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
             elif args.optimizer == "Adam":
-                optimizer = tf.train.AdamOptimizer(learning_rate=args.learning_rate)
+                optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
             else:
                 raise RuntimeError("Invalid optimizer")
 
@@ -54,6 +60,7 @@ class Network:
             self.summaries = {}
             with summary_writer.as_default(), tf.contrib.summary.record_summaries_every_n_global_steps(100):
                 self.summaries["train"] = [tf.contrib.summary.scalar("train/loss", loss),
+                                           tf.contrib.summary.scalar("train/learning_rate", learning_rate),
                                            tf.contrib.summary.scalar("train/accuracy", self.accuracy)]
             with summary_writer.as_default(), tf.contrib.summary.always_record_summaries():
                 for dataset in ["dev", "test"]:
@@ -113,7 +120,7 @@ if __name__ == "__main__":
 
     # Construct the network
     network = Network(threads=args.threads)
-    network.construct(args)
+    network.construct(args, batches_per_epoch)
 
     # Train
     for i in range(args.epochs):
