@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 import numpy as np
 import tensorflow as tf
+from sklearn.preprocessing import OneHotEncoder
+
+ALPHABET_SIZE = 100
 
 # Loads an uppercase dataset.
 # - The dataset either uses a specified alphabet, or constructs an alphabet of
@@ -55,6 +58,8 @@ class Dataset:
         batch_windows = np.zeros([len(permutation), 2 * self._window + 1], np.int32)
         for i in range(0, 2 * self._window + 1):
             batch_windows[:, i] = self._lcletters[permutation + i]
+
+        # batch_windows = OneHotEncoder(n_values=ALPHABET_SIZE, sparse=False).fit_transform(batch_windows)
         return batch_windows, self._labels[permutation]
 
     @property
@@ -95,15 +100,50 @@ class Network:
     def construct(self, args):
         with self.session.graph.as_default():
             # Inputs
-            self.windows = tf.placeholder(tf.int32, [None, 2 * args.window + 1], name="windows")
-            self.labels = tf.placeholder(tf.bool, [None], name="labels") # Or you can use tf.int32
+            WINDOW_SIZE = (2 * args.window + 1)
+
+            self.windows = tf.placeholder(tf.int32, [None, WINDOW_SIZE], name="windows")
+            self.labels = tf.placeholder(tf.int32, [None], name="labels") # Or you can use tf.int32
+            self.is_training = tf.placeholder_with_default(False, (), name="is_training")
+
+            with tf.name_scope("preprocessing"):
+                cols = []
+
+                for i in range(WINDOW_SIZE):
+                    cols.append(tf.one_hot(self.windows[:, i], ALPHABET_SIZE))
+
+                encoded = tf.concat(cols, axis=1)
 
             # TODO: Define a suitable network with appropriate loss function
+            hidden = tf.cast(encoded, dtype=tf.float32, name="hidden0")
+
+            hidden = tf.layers.dense(hidden, 200, activation=tf.nn.relu, name="hidden_pre")
+            for i in range(2):
+                hidden = tf.layers.dense(hidden, 200, activation=tf.nn.relu, name="hidden{}".format(i+1))
+                # hidden = tf.layers.batch_normalization(hidden, axis=1, training=self.is_training)
+                hidden = tf.layers.dropout(hidden, rate=0.3, training=self.is_training)
+
+            hidden = tf.layers.dense(hidden, 200, activation=tf.nn.relu, name="hidden_post")
+            output = tf.layers.dense(hidden, 2, activation=None, name="output")
+
+            self.predictions = tf.argmax(output, axis=1, output_type=tf.int32, name="predictions")
+
+            with tf.name_scope("loss"):
+                loss = tf.losses.sparse_softmax_cross_entropy(logits=output, labels=self.labels)
+            # loss = tf.reduce_mean(y * tf.log(output) + (1 - y) * tf.log(1 - output))
 
             # TODO: Define training
 
+            global_step = tf.train.create_global_step()
+
+            update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+            with tf.control_dependencies(update_ops):
+                self.training = tf.train.AdamOptimizer().minimize(loss, global_step=global_step)
+
+            with tf.name_scope("accuracy"):
+                self.accuracy = tf.reduce_mean(tf.cast(tf.equal(self.labels, self.predictions), tf.float32))
+
             # Summaries
-            self.accuracy = tf.reduce_mean(tf.cast(tf.equal(self.labels, self.predictions), tf.float32))
             summary_writer = tf.contrib.summary.create_file_writer(args.logdir, flush_millis=10 * 1000)
             self.summaries = {}
             with summary_writer.as_default(), tf.contrib.summary.record_summaries_every_n_global_steps(100):
@@ -120,10 +160,10 @@ class Network:
                 tf.contrib.summary.initialize(session=self.session, graph=self.session.graph)
 
     def train(self, windows, labels):
-        self.session.run([self.training, self.summaries["train"]], {self.windows: windows, self.labels: labels})
+        self.session.run([self.training, self.summaries["train"]], {self.windows: windows, self.labels: labels, self.is_training: True})
 
     def evaluate(self, dataset, windows, labels):
-        return self.session.run(self.summaries[dataset], {self.windows: windows, self.labels: labels})
+        return self.session.run([self.accuracy, self.summaries[dataset]], {self.windows: windows, self.labels: labels, self.is_training: False})
 
 
 if __name__ == "__main__":
@@ -137,12 +177,14 @@ if __name__ == "__main__":
 
     # Parse arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument("--alphabet_size", default=None, type=int, help="Alphabet size.")
-    parser.add_argument("--batch_size", default=None, type=int, help="Batch size.")
-    parser.add_argument("--epochs", default=None, type=int, help="Number of epochs.")
-    parser.add_argument("--threads", default=1, type=int, help="Maximum number of threads to use.")
-    parser.add_argument("--window", default=None, type=int, help="Size of the window to use.")
+    parser.add_argument("--alphabet_size", default=ALPHABET_SIZE, type=int, help="Alphabet size.")
+    parser.add_argument("--batch_size", default=2048, type=int, help="Batch size.")
+    parser.add_argument("--epochs", default=40, type=int, help="Number of epochs.")
+    parser.add_argument("--threads", default=12, type=int, help="Maximum number of threads to use.")
+    parser.add_argument("--window", default=3, type=int, help="Size of the window to use.")
     args = parser.parse_args()
+
+    assert args.alphabet_size == 100
 
     # Create logdir name
     args.logdir = "logs/{}-{}-{}".format(
@@ -153,9 +195,9 @@ if __name__ == "__main__":
     if not os.path.exists("logs"): os.mkdir("logs") # TF 1.6 will do this by itself
 
     # Load the data
-    train = Dataset("uppercase_data_train.txt", args.window, alphabet=args.alphabet_size)
-    dev = Dataset("uppercase_data_dev.txt", args.window, alphabet=train.alphabet)
-    test = Dataset("uppercase_data_test.txt", args.window, alphabet=train.alphabet)
+    train = Dataset("data/uppercase_data_train.txt", args.window, alphabet=args.alphabet_size)
+    dev = Dataset("data/uppercase_data_dev.txt", args.window, alphabet=train.alphabet)
+    test = Dataset("data/uppercase_data_test.txt", args.window, alphabet=train.alphabet)
 
     # Construct the network
     network = Network(threads=args.threads)
