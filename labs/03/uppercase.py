@@ -19,10 +19,8 @@ class Dataset:
         self._window = window
 
         # Load the data
-        with open(filename, "r", encoding="utf8") as file:
+        with open(filename, "r", encoding="utf-8") as file:
             self._text = file.read()
-
-        print(len(self._text))
 
         # Create alphabet_map
         alphabet_map = {"<pad>": 0, "<unk>": 1}
