@@ -109,9 +109,9 @@ class Network:
 
             with tf.name_scope("preprocessing"):
                 hot = tf.one_hot(self.windows, args.alphabet_size, axis=1)
-                encoded = tf.reshape(hot, (-1, args.alphabet_size * (2 * args.window + 1)))
-
-            hidden = tf.cast(encoded, dtype=tf.float32, name="hidden0")
+                # encoded = tf.reshape(hot, (-1, args.alphabet_size * WINDOW_SIZE))
+                encoded = tf.layers.flatten(hot)
+                hidden = tf.cast(encoded, dtype=tf.float32, name="hidden0")
 
             UNITS = args.units
 
@@ -229,6 +229,7 @@ if __name__ == "__main__":
             network.train(windows, labels)
 
         dev_windows, dev_labels = dev.all_data()
-        network.evaluate("dev", dev_windows, dev_labels)
+        acc, _ = network.evaluate("dev", dev_windows, dev_labels)
+        print(f"Dev acc: {acc}")
 
     # TODO: Generate the uppercased test set
