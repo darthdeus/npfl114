@@ -12,15 +12,15 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="CoverageDataManager">
-    <SUITE FILE_PATH="coverage/03$uppercase.coverage" NAME="uppercase Coverage Results" MODIFIED="1520992840494" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/03$uppercase.coverage" NAME="uppercase Coverage Results" MODIFIED="1521248190553" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
   <component name="FileEditorManager">
     <leaf>
       <file leaf-file-name="uppercase.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/uppercase.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="677">
-              <caret line="127" column="90" selection-start-line="127" selection-start-column="90" selection-end-line="127" selection-end-column="90" />
+            <state relative-caret-position="721">
+              <caret line="142" selection-start-line="142" selection-end-line="142" />
               <folding>
                 <element signature="e#23#41#0" expanded="true" />
               </folding>
@@ -64,9 +64,9 @@
     <sorting>DEFINITION_ORDER</sorting>
   </component>
   <component name="ProjectFrameBounds">
-    <option name="x" value="355" />
+    <option name="x" value="458" />
     <option name="y" value="11" />
-    <option name="width" value="1948" />
+    <option name="width" value="1845" />
     <option name="height" value="1371" />
   </component>
   <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
@@ -141,15 +141,16 @@
     <servers />
   </component>
   <component name="ToolWindowManager">
-    <frame x="355" y="11" width="1948" height="1371" extended-state="0" />
+    <frame x="458" y="11" width="1845" height="1371" extended-state="0" />
+    <editor active="true" />
     <layout>
       <window_info anchor="bottom" id="TODO" order="6" />
-      <window_info anchor="bottom" id="Event Log" side_tool="true" />
-      <window_info active="true" anchor="bottom" id="Run" order="2" visible="true" weight="0.23089172" />
+      <window_info anchor="bottom" id="Event Log" sideWeight="0.50027335" side_tool="true" weight="0.23089172" />
+      <window_info active="true" anchor="bottom" id="Run" order="2" sideWeight="0.49972662" visible="true" weight="0.26194268" />
       <window_info anchor="bottom" id="Version Control" />
       <window_info anchor="bottom" id="Python Console" />
       <window_info anchor="bottom" id="Terminal" />
-      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.11801242" />
+      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.12465829" />
       <window_info anchor="bottom" id="Docker" show_stripe_button="false" />
       <window_info anchor="right" id="Database" />
       <window_info anchor="right" id="SciView" />
@@ -173,7 +174,7 @@
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
-      <option name="time" value="1" />
+      <option name="time" value="2" />
     </breakpoint-manager>
   </component>
   <component name="editorHistoryManager">
@@ -230,8 +231,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/uppercase.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="677">
-          <caret line="127" column="90" selection-start-line="127" selection-start-column="90" selection-end-line="127" selection-end-column="90" />
+        <state relative-caret-position="721">
+          <caret line="142" selection-start-line="142" selection-end-line="142" />
           <folding>
             <element signature="e#23#41#0" expanded="true" />
           </folding>
