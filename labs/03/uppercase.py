@@ -121,10 +121,10 @@ class Network:
             # TODO: rozbalit, gradient super highway :D
 
             # hidden = tf.layers.dense(hidden, UNITS, activation=tf.nn.relu, name="hidden_pre")
-            for i in range(1):
-                with tf.name_scope(f"hidden-{i}"):
-                    hidden = tf.layers.dense(hidden, UNITS, activation=tf.nn.relu, name=f"hidden-{i+1}")
-                    hidden = tf.layers.dropout(hidden, rate=0.3, training=self.is_training)
+            # for i in range(1):
+            #     with tf.name_scope(f"hidden-{i}"):
+            #         hidden = tf.layers.dense(hidden, UNITS, activation=tf.nn.relu, name=f"hidden-{i+1}")
+            #         hidden = tf.layers.dropout(hidden, rate=0.3, training=self.is_training)
                     # hidden = tf.layers.batch_normalization(hidden, axis=1, training=self.is_training)
 
                 # hist_hidden.append(hidden)
