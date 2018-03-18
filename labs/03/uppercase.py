@@ -3,8 +3,6 @@ import numpy as np
 import tensorflow as tf
 from sklearn.preprocessing import OneHotEncoder
 
-ALPHABET_SIZE = 100
-
 
 # Loads an uppercase dataset.
 # - The dataset either uses a specified alphabet, or constructs an alphabet of
@@ -60,7 +58,6 @@ class Dataset:
         for i in range(0, 2 * self._window + 1):
             batch_windows[:, i] = self._lcletters[permutation + i]
 
-        # batch_windows = OneHotEncoder(n_values=ALPHABET_SIZE, sparse=False).fit_transform(batch_windows)
         return batch_windows, self._labels[permutation]
 
     @property
@@ -113,18 +110,16 @@ class Network:
                 encoded = tf.layers.flatten(hot)
                 hidden = tf.cast(encoded, dtype=tf.float32, name="hidden0")
 
-            UNITS = args.units
-
             hist_hidden = []
             hist_relu = []
 
             # TODO: rozbalit, gradient super highway :D
 
             # hidden = tf.layers.dense(hidden, UNITS, activation=tf.nn.relu, name="hidden_pre")
-            # for i in range(1):
-            #     with tf.name_scope(f"hidden-{i}"):
-            #         hidden = tf.layers.dense(hidden, UNITS, activation=tf.nn.relu, name=f"hidden-{i+1}")
-            #         hidden = tf.layers.dropout(hidden, rate=0.3, training=self.is_training)
+            for i in range(args.layers):
+                with tf.name_scope(f"hidden-{i}"):
+                    hidden = tf.layers.dense(hidden, args.units, activation=tf.nn.relu, name=f"hidden-{i+1}")
+                    hidden = tf.layers.dropout(hidden, rate=args.dropout_rate, training=self.is_training)
                     # hidden = tf.layers.batch_normalization(hidden, axis=1, training=self.is_training)
 
                 # hist_hidden.append(hidden)
@@ -136,15 +131,20 @@ class Network:
 
             self.predictions = tf.argmax(output, axis=1, output_type=tf.int32, name="predictions")
 
+            tf.add_to_collection("windows", self.windows)
+            tf.add_to_collection("labels", self.labels)
+            tf.add_to_collection("predictions", self.predictions)
+
             with tf.name_scope("loss"):
                 loss = tf.losses.sparse_softmax_cross_entropy(logits=output, labels=self.labels)
 
-            global_step = tf.train.create_global_step()
+            self.global_step = tf.train.create_global_step()
 
             update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
             with tf.control_dependencies(update_ops):
-                # lr_decay = tf.train.exponential_decay(args.learning_rate, global_step, 1, args.lr_decay_rate, name="lr_decay")
-                self.training = tf.train.AdamOptimizer(0.0005).minimize(loss, global_step=global_step)
+                learning_rate = tf.train.exponential_decay(args.learning_rate, self.global_step, args.decay_steps, args.lr_decay, staircase=True, name="lr_decay")
+
+                self.training = tf.train.AdamOptimizer(learning_rate).minimize(loss, global_step=self.global_step)
 
             with tf.name_scope("accuracy"):
                 self.accuracy = tf.reduce_mean(tf.cast(tf.equal(self.labels, self.predictions), tf.float32))
@@ -156,6 +156,7 @@ class Network:
                 summs = [
                     tf.contrib.summary.scalar("train/loss", loss),
                     tf.contrib.summary.scalar("train/accuracy", self.accuracy),
+                    tf.contrib.summary.scalar("learning_rate", learning_rate)
                 ]
 
                 # for i in range(len(hist_hidden)):
@@ -173,45 +174,75 @@ class Network:
             with summary_writer.as_default():
                 tf.contrib.summary.initialize(session=self.session, graph=self.session.graph)
 
+            init = tf.global_variables_initializer()
+            self.saver = tf.train.Saver()
+            self.session.run(init)
+
     def train(self, windows, labels):
         self.session.run([self.training, self.summaries["train"]],
                          {self.windows: windows, self.labels: labels, self.is_training: True})
 
     def evaluate(self, dataset, windows, labels):
-        return self.session.run([self.accuracy, self.summaries[dataset]],
+        return self.session.run([self.accuracy, self.predictions, self.summaries[dataset]],
                                 {self.windows: windows, self.labels: labels, self.is_training: False})
 
+    def predict(self, windows):
+        return self.session.run(self.predictions, {self.windows: windows, self.is_training: False}).astype(np.bool)
 
-if __name__ == "__main__":
+    def save(self, path):
+        self.saver.save(self.session, path)
+
+    def load(self, path):
+        with self.session.graph.as_default():
+            self.saver = tf.train.import_meta_graph(path + "/model.meta")
+
+        self.saver.restore(self.session, path + "/model")
+
+def parse_args():
     import argparse
     import datetime
     import os
     import re
 
-    # Fix random seed
-    np.random.seed(42)
-
     # Parse arguments
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--alphabet_size", default=ALPHABET_SIZE, type=int, help="Alphabet size.")
-    parser.add_argument("--batch_size", default=4096, type=int, help="Batch size.")
-    parser.add_argument("--learning_rate", default=0.0005, type=float, help="Learning rate.")
-    parser.add_argument("--units", default=1024, type=int, help="Number of neurons in the hidden units.")
-    parser.add_argument("--epochs", default=40, type=int, help="Number of epochs.")
-    parser.add_argument("--threads", default=12, type=int, help="Maximum number of threads to use.")
     parser.add_argument("--window", default=7, type=int, help="Size of the window to use.")
+    parser.add_argument("--alphabet_size", default=80, type=int, help="Alphabet size.")
+
+    parser.add_argument("--units", default=1024, type=int, help="Number of neurons in the hidden units.")
+    parser.add_argument("--layers", default=2, type=int, help="Number of hidden layers.")
+    parser.add_argument("--dropout_rate", default=0.3, type=float, help="Dropout rate.")
+
+    parser.add_argument("--learning_rate", default=0.0025, type=float, help="Learning rate.")
+    parser.add_argument("--lr_decay", default=0.90, type=float, help="Learning rate decay.")
+
+    parser.add_argument("--batch_size", default=4096, type=int, help="Batch size.")
+    parser.add_argument("--epochs", default=20, type=int, help="Number of epochs.")
+    parser.add_argument("--decay_steps", default=5500, type=int, help="Decay steps.")
+    parser.add_argument("--threads", default=12, type=int, help="Maximum number of threads to use.")
+
     args = parser.parse_args()
 
-    assert args.alphabet_size == 100
+    arg_str = ",".join(("{}={}".format(re.sub("(.)[^_]*_?", r"\1", key), value) for key, value in sorted(vars(args).items())))
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
 
     # Create logdir name
     args.logdir = "logs/{}-{}-{}".format(
         os.path.basename(__file__),
-        datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S"),
-        ",".join(("{}={}".format(re.sub("(.)[^_]*_?", r"\1", key), value) for key, value in sorted(vars(args).items())))
+        timestamp,
+        arg_str,
     )
     if not os.path.exists("logs"): os.mkdir("logs")  # TF 1.6 will do this by itself
+
+    return args, arg_str
+
+
+if __name__ == "__main__":
+    # Fix random seed
+    np.random.seed(42)
+
+    args, arg_str = parse_args()
 
     # Load the data
     train = Dataset("data/uppercase_data_train.txt", args.window, alphabet=args.alphabet_size)
@@ -229,7 +260,9 @@ if __name__ == "__main__":
             network.train(windows, labels)
 
         dev_windows, dev_labels = dev.all_data()
-        acc, _ = network.evaluate("dev", dev_windows, dev_labels)
-        print(f"Dev acc: {acc}")
+        acc, _, _ = network.evaluate("dev", dev_windows, dev_labels)
+
+        save_path = network.save("models/{}-{}-{:.5f}/model".format(arg_str, i, acc))
+        print(f"Dev acc: {acc}, saved")
 
     # TODO: Generate the uppercased test set
