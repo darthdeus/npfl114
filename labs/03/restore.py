@@ -1,6 +1,9 @@
-import pdb
+# import ipdb
 import tensorflow as tf
 import numpy as np
+import re
+import os
+import pdb
 
 from glob import glob
 
@@ -15,6 +18,15 @@ nets = []
 
 for dir in dirs:
     args, _ = parse_args()
+
+    # ipdb.set_trace()
+
+    if not os.path.exists(dir + "/model.meta"):
+        continue
+
+    print(dir)
+    args.alphabet_size = int(re.search("as=(\\d+)", dir).groups()[0])
+    args.window_size = int(re.search("w=(\\d+)", dir).groups()[0])
 
     net = Network(threads=12)
     net.construct(args)
