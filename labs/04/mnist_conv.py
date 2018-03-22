@@ -30,6 +30,31 @@ class Network:
             # - R-hidden_layer_size: Add a dense layer with ReLU activation and specified size. Ex: R-100
             # Store result in `features`.
 
+            # --cnn=C-10-3-2-same,M-3-2,F,R-100
+            features = self.images
+
+            for param in args.cnn.split(","):
+                type = param[0]
+                cnn_settings = param.split("-")
+
+                if type == "C":
+                    features = tf.layers.conv2d(features,
+                                                filters=int(cnn_settings[1]),
+                                                kernel_size=int(cnn_settings[2]),
+                                                strides=int(cnn_settings[3]),
+                                                padding=cnn_settings[4],
+                                                activation=tf.nn.relu)
+                elif type == "M":
+                    features = tf.layers.max_pooling2d(features,
+                                                       pool_size=int(cnn_settings[1]),
+                                                       strides=int(cnn_settings[2]))
+                elif type == "F":
+                    features = tf.layers.flatten(features)
+                elif type == "R":
+                    features = tf.layers.dense(features,
+                                               units=int(cnn_settings[1]),
+                                               activation=tf.nn.relu)
+
             output_layer = tf.layers.dense(features, self.LABELS, activation=None, name="output_layer")
             self.predictions = tf.argmax(output_layer, axis=1)
 
