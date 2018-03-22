@@ -218,7 +218,7 @@ def parse_args():
     parser.add_argument("--lr_decay", default=0.90, type=float, help="Learning rate decay.")
 
     parser.add_argument("--batch_size", default=4096, type=int, help="Batch size.")
-    parser.add_argument("--epochs", default=20, type=int, help="Number of epochs.")
+    parser.add_argument("--epochs", default=2, type=int, help="Number of epochs.")
     parser.add_argument("--decay_steps", default=5500, type=int, help="Decay steps.")
     parser.add_argument("--threads", default=12, type=int, help="Maximum number of threads to use.")
 
