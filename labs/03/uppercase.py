@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 import numpy as np
 import tensorflow as tf
-from sklearn.preprocessing import OneHotEncoder
-
 
 # Loads an uppercase dataset.
 # - The dataset either uses a specified alphabet, or constructs an alphabet of

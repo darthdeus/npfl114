@@ -16,7 +16,82 @@ class Network:
 
     def construct(self, args):
         with self.session.graph.as_default():
-            # TODO: Construct the network and training operation.
+            # Inputs
+            self.images = tf.placeholder(tf.float32, [None, self.WIDTH, self.HEIGHT, 1], name="images")
+            self.labels = tf.placeholder(tf.int64, [None], name="labels")
+            self.is_training = tf.placeholder(tf.bool, [], name="is_training")
+
+            # Computation
+            # TODO: Add layers described in the args.cnn. Layers are separated by a comma and
+            # in addition to the ones allowed in mnist_conv.py you should also support
+            # - CB-filters-kernel_size-stride-padding: Add a convolutional layer with BatchNorm
+            #   and ReLU activation and specified number of filters, kernel size, stride and padding.
+            #   Example: CB-10-3-1-same
+            # To correctly implement BatchNorm:
+            # - The convolutional layer should not use any activation and no biases.
+            # - The output of the convolutional layer is passed to batch_normalization layer, which
+            #   should specify `training=True` during training and `training=False` during inference.
+            # - The output of the batch_normalization layer is passed through tf.nn.relu.
+            # - You need to update the moving averages of mean and variance in the batch normalization
+            #   layer during each training batch. Such update operations can be obtained using
+            #   `tf.get_collection(tf.GraphKeys.UPDATE_OPS)` and utilized either directly in `session.run`,
+            #   or (preferably) attached to `self.train` using `tf.control_dependencies`.
+            # Store result in `features`.
+
+            features = self.images
+
+            for layer in args.cnn.split(","):
+                layer_args = layer.split("-")
+
+                type = layer_args[0]
+
+                if type == "CB":
+                    features = tf.layers.conv2d(features,
+                                                filters=int(layer_args[1]),
+                                                kernel_size=int(layer_args[2]),
+                                                strides=int(layer_args[3]),
+                                                padding=layer_args[4],
+                                                activation=None)
+
+                    features = tf.layers.batch_normalization(features,
+                                                             training=self.is_training)
+
+                    features = tf.nn.relu(features)
+                elif type == "C":
+                    features = tf.layers.conv2d(features,
+                                                filters=int(layer_args[1]),
+                                                kernel_size=int(layer_args[2]),
+                                                strides=int(layer_args[3]),
+                                                padding=layer_args[4],
+                                                activation=tf.nn.relu)
+                elif type == "M":
+                    features = tf.layers.max_pooling2d(features,
+                                                       pool_size=int(layer_args[1]),
+                                                       strides=int(layer_args[2]))
+                elif type == "F":
+                    features = tf.layers.flatten(features)
+                elif type == "R":
+                    features = tf.layers.dense(features,
+                                               units=int(layer_args[1]),
+                                               activation=tf.nn.relu)
+
+
+                    features = tf.layers.dropout(features,
+                                                0.5,
+                                                training=self.is_training)
+
+
+
+            output_layer = tf.layers.dense(features, self.LABELS, activation=None, name="output_layer")
+            self.predictions = tf.argmax(output_layer, axis=1)
+
+            # Training
+            loss = tf.losses.sparse_softmax_cross_entropy(self.labels, output_layer, scope="loss")
+            global_step = tf.train.create_global_step()
+
+            with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
+                self.training = tf.train.AdamOptimizer().minimize(loss, global_step=global_step, name="training")
+
 
             # Summaries
             self.accuracy = tf.reduce_mean(tf.cast(tf.equal(self.labels, self.predictions), tf.float32))
@@ -36,12 +111,27 @@ class Network:
                 tf.contrib.summary.initialize(session=self.session, graph=self.session.graph)
 
     def train(self, images, labels):
-        # TODO
-        pass
+        self.session.run([self.training, self.summaries["train"]], {
+            self.images: images,
+            self.labels: labels,
+            self.is_training: True
+        })
 
     def evaluate(self, dataset, images, labels):
-        # TODO
-        pass
+        accuracy, _ = self.session.run([self.accuracy, self.summaries[dataset]], {
+            self.images: images,
+            self.labels: labels,
+            self.is_training: False
+        })
+        return accuracy
+
+    def predict(self, images):
+        return self.session.run([self.predictions], {
+            self.images: images,
+            self.is_training: False
+            })
+
+
 
 
 if __name__ == "__main__":
@@ -55,9 +145,10 @@ if __name__ == "__main__":
 
     # Parse arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument("--batch_size", default=None, type=int, help="Batch size.")
-    parser.add_argument("--epochs", default=None, type=int, help="Number of epochs.")
-    parser.add_argument("--threads", default=1, type=int, help="Maximum number of threads to use.")
+    parser.add_argument("--batch_size", default=512, type=int, help="Batch size.")
+    parser.add_argument("--cnn", default=None, type=str, help="Description of the CNN architecture.")
+    parser.add_argument("--epochs", default=20, type=int, help="Number of epochs.")
+    parser.add_argument("--threads", default=12, type=int, help="Maximum number of threads to use.")
     args = parser.parse_args()
 
     # Create logdir name
@@ -84,6 +175,7 @@ if __name__ == "__main__":
 
         network.evaluate("dev", mnist.validation.images, mnist.validation.labels)
 
+    test_labels = network.predict(mnist.test.images)
     # TODO: Compute test_labels, as numbers 0-9, corresponding to mnist.test.images
 
     for label in test_labels:
