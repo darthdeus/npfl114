@@ -10,6 +10,20 @@ import tensorflow as tf
 #   itself and right `window` characters, 2 * `window` +1 in total.
 # - The batches can be either generated using `next_batch`+`epoch_finished`,
 #   or all data in the original order can be generated using `all_data`.
+
+
+def generate_output(network, dataset, file):
+    windows, _ = dataset.all_data()
+    preds = network.predict(windows)
+
+    with open(file, "w", encoding="utf-8") as f:
+        for i in range(len(dataset.text)):
+            if preds[i]:
+                f.write(dataset.text[i].upper())
+            else:
+                f.write(dataset.text[i])
+
+
 class Dataset:
     def __init__(self, filename, window, alphabet):
         self._window = window
@@ -90,8 +104,11 @@ class Network:
         # Create an empty graph and a session
         graph = tf.Graph()
         graph.seed = seed
+        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.6)
+
         self.session = tf.Session(graph=graph, config=tf.ConfigProto(inter_op_parallelism_threads=threads,
-                                                                     intra_op_parallelism_threads=threads))
+                                                                     intra_op_parallelism_threads=threads,
+                                                                     gpu_options=gpu_options))
 
     def construct(self, args):
         with self.session.graph.as_default():
@@ -104,14 +121,9 @@ class Network:
 
             with tf.name_scope("preprocessing"):
                 hot = tf.one_hot(self.windows, args.alphabet_size, axis=1)
-                # encoded = tf.reshape(hot, (-1, args.alphabet_size * WINDOW_SIZE))
                 encoded = tf.layers.flatten(hot)
                 hidden = tf.cast(encoded, dtype=tf.float32, name="hidden0")
 
-            hist_hidden = []
-            hist_relu = []
-
-            # TODO: rozbalit, gradient super highway :D
 
             # hidden = tf.layers.dense(hidden, UNITS, activation=tf.nn.relu, name="hidden_pre")
             for i in range(args.layers):
@@ -216,7 +228,7 @@ def parse_args():
     parser.add_argument("--lr_decay", default=0.90, type=float, help="Learning rate decay.")
 
     parser.add_argument("--batch_size", default=4096, type=int, help="Batch size.")
-    parser.add_argument("--epochs", default=2, type=int, help="Number of epochs.")
+    parser.add_argument("--epochs", default=1, type=int, help="Number of epochs.")
     parser.add_argument("--decay_steps", default=5500, type=int, help="Decay steps.")
     parser.add_argument("--threads", default=12, type=int, help="Maximum number of threads to use.")
 
@@ -264,3 +276,7 @@ if __name__ == "__main__":
         print(f"Dev acc: {acc}, saved")
 
     # TODO: Generate the uppercased test set
+    generate_output(network, test, "test.csv")
+    generate_output(network, dev, "dev.csv")
+
+

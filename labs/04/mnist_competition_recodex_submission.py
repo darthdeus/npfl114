@@ -1,4 +1,6 @@
-#!/usr/bin/env python3
+# coding=utf-8
+
+source_1 = """#!/usr/bin/env python3
 import numpy as np
 import tensorflow as tf
 
@@ -11,15 +13,17 @@ class Network:
         # Create an empty graph and a session
         graph = tf.Graph()
         graph.seed = seed
+        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.6)
         self.session = tf.Session(graph = graph, config=tf.ConfigProto(inter_op_parallelism_threads=threads,
-                                                                       intra_op_parallelism_threads=threads))
+                                                                       intra_op_parallelism_threads=threads,
+                                                                       gpu_options=gpu_options))
 
     def construct(self, args):
         with self.session.graph.as_default():
             # Inputs
-            self.images = tf.placeholder(tf.float32, [None, self.WIDTH, self.HEIGHT, 1], name="images")
-            self.labels = tf.placeholder(tf.int64, [None], name="labels")
-            self.is_training = tf.placeholder(tf.bool, [], name="is_training")
+            self.images = tf.placeholder(tf.float32, [None, self.WIDTH, self.HEIGHT, 1], name=\"images\")
+            self.labels = tf.placeholder(tf.int64, [None], name=\"labels\")
+            self.is_training = tf.placeholder(tf.bool, [], name=\"is_training\")
 
             # Computation
             # TODO: Add layers described in the args.cnn. Layers are separated by a comma and
@@ -40,66 +44,70 @@ class Network:
 
             features = self.images
 
-            for layer in args.cnn.split(","):
-                layer_args = layer.split("-")
+            for layer in args.cnn.split(\",\"):
+                layer_args = layer.split(\"-\")
 
                 type = layer_args[0]
 
-                if type == "CB":
+                if type == \"CB\":
                     features = tf.layers.conv2d(features,
                                                 filters=int(layer_args[1]),
                                                 kernel_size=int(layer_args[2]),
                                                 strides=int(layer_args[3]),
                                                 padding=layer_args[4],
-                                                activation=None,
-                                                use_bias=False)
+                                                activation=None)
 
                     features = tf.layers.batch_normalization(features,
                                                              training=self.is_training)
 
                     features = tf.nn.relu(features)
-                elif type == "C":
+                elif type == \"C\":
                     features = tf.layers.conv2d(features,
                                                 filters=int(layer_args[1]),
                                                 kernel_size=int(layer_args[2]),
                                                 strides=int(layer_args[3]),
                                                 padding=layer_args[4],
                                                 activation=tf.nn.relu)
-                elif type == "M":
+                elif type == \"M\":
                     features = tf.layers.max_pooling2d(features,
                                                        pool_size=int(layer_args[1]),
                                                        strides=int(layer_args[2]))
-                elif type == "F":
+                elif type == \"F\":
                     features = tf.layers.flatten(features)
-                elif type == "R":
+                elif type == \"R\":
                     features = tf.layers.dense(features,
                                                units=int(layer_args[1]),
                                                activation=tf.nn.relu)
 
 
+                    features = tf.layers.dropout(features,
+                                                0.5,
+                                                training=self.is_training)
 
 
-            output_layer = tf.layers.dense(features, self.LABELS, activation=None, name="output_layer")
+
+            output_layer = tf.layers.dense(features, self.LABELS, activation=None, name=\"output_layer\")
             self.predictions = tf.argmax(output_layer, axis=1)
 
             # Training
-            loss = tf.losses.sparse_softmax_cross_entropy(self.labels, output_layer, scope="loss")
+            loss = tf.losses.sparse_softmax_cross_entropy(self.labels, output_layer, scope=\"loss\")
             global_step = tf.train.create_global_step()
 
             with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
-                self.training = tf.train.AdamOptimizer().minimize(loss, global_step=global_step, name="training")
+                self.training = tf.train.AdamOptimizer(learning_rate=0.0003).minimize(loss, global_step=global_step, name=\"training\")
+
 
             # Summaries
             self.accuracy = tf.reduce_mean(tf.cast(tf.equal(self.labels, self.predictions), tf.float32))
             summary_writer = tf.contrib.summary.create_file_writer(args.logdir, flush_millis=10 * 1000)
             self.summaries = {}
             with summary_writer.as_default(), tf.contrib.summary.record_summaries_every_n_global_steps(100):
-                self.summaries["train"] = [tf.contrib.summary.scalar("train/loss", loss),
-                                           tf.contrib.summary.scalar("train/accuracy", self.accuracy)]
+                self.summaries[\"train\"] = [tf.contrib.summary.scalar(\"train/loss\", loss),
+                                           tf.contrib.summary.scalar(\"train/accuracy\", self.accuracy)]
             with summary_writer.as_default(), tf.contrib.summary.always_record_summaries():
-                for dataset in ["dev", "test"]:
-                    self.summaries[dataset] = [tf.contrib.summary.scalar(dataset + "/loss", loss),
-                                               tf.contrib.summary.scalar(dataset + "/accuracy", self.accuracy)]
+                for dataset in [\"dev\", \"test\"]:
+                    self.summaries[dataset] = [tf.contrib.summary.scalar(dataset + \"/loss\", loss),
+                                               tf.contrib.summary.scalar(dataset + \"/accuracy\", self.accuracy)]
 
             # Initialize variables
             self.session.run(tf.global_variables_initializer())
@@ -107,7 +115,7 @@ class Network:
                 tf.contrib.summary.initialize(session=self.session, graph=self.session.graph)
 
     def train(self, images, labels):
-        self.session.run([self.training, self.summaries["train"]], {
+        self.session.run([self.training, self.summaries[\"train\"]], {
             self.images: images,
             self.labels: labels,
             self.is_training: True
@@ -121,8 +129,16 @@ class Network:
         })
         return accuracy
 
+    def predict(self, images):
+        return self.session.run([self.predictions], {
+            self.images: images,
+            self.is_training: False
+            })
 
-if __name__ == "__main__":
+
+
+
+if __name__ == \"__main__\":
     import argparse
     import datetime
     import os
@@ -133,23 +149,25 @@ if __name__ == "__main__":
 
     # Parse arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument("--batch_size", default=50, type=int, help="Batch size.")
-    parser.add_argument("--cnn", default=None, type=str, help="Description of the CNN architecture.")
-    parser.add_argument("--epochs", default=10, type=int, help="Number of epochs.")
-    parser.add_argument("--threads", default=1, type=int, help="Maximum number of threads to use.")
+    parser.add_argument(\"--batch_size\", default=128, type=int, help=\"Batch size.\")
+    parser.add_argument(\"--cnn\", default=None, type=str, help=\"Description of the CNN architecture.\")
+    parser.add_argument(\"--epochs\", default=15, type=int, help=\"Number of epochs.\")
+    parser.add_argument(\"--threads\", default=12, type=int, help=\"Maximum number of threads to use.\")
     args = parser.parse_args()
+    
+    args.cnn = \"CB-128-3-1-same,CB-64-3-1-same,M-2-1,F,R-1024\"
 
     # Create logdir name
-    args.logdir = "logs/{}-{}-{}".format(
+    args.logdir = \"logs/{}-{}-{}\".format(
         os.path.basename(__file__),
-        datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S"),
-        ",".join(("{}={}".format(re.sub("(.)[^_]*_?", r"\1", key), value) for key, value in sorted(vars(args).items())))
+        datetime.datetime.now().strftime(\"%Y-%m-%d_%H%M%S\"),
+        \",\".join((\"{}={}\".format(re.sub(\"(.)[^_]*_?\", r\"\\1\", key), value) for key, value in sorted(vars(args).items())))
     )
-    if not os.path.exists("logs"): os.mkdir("logs") # TF 1.6 will do this by itself
+    if not os.path.exists(\"logs\"): os.mkdir(\"logs\") # TF 1.6 will do this by itself
 
     # Load the data
     from tensorflow.examples.tutorials import mnist
-    mnist = mnist.input_data.read_data_sets(".", reshape=False, seed=42)
+    mnist = mnist.input_data.read_data_sets(\"mnist-gan\", reshape=False, seed=42)
 
     # Construct the network
     network = Network(threads=args.threads)
@@ -161,7 +179,29 @@ if __name__ == "__main__":
             images, labels = mnist.train.next_batch(args.batch_size)
             network.train(images, labels)
 
-        network.evaluate("dev", mnist.validation.images, mnist.validation.labels)
+        network.evaluate(\"dev\", mnist.validation.images, mnist.validation.labels)
 
-    accuracy = network.evaluate("test", mnist.test.images, mnist.test.labels)
-    print("{:.2f}".format(100 * accuracy))
+    labels = []
+
+    while mnist.test.epochs_completed == 0:
+        test_images, _ = mnist.test.next_batch(args.batch_size)
+        test_labels = network.predict(test_images)
+
+        labels.append(test_labels)
+    # TODO: Compute test_labels, as numbers 0-9, corresponding to mnist.test.images
+    np.savetxt(\"test-preds.csv\", np.concatenate(test_labels))
+    # for label in test_labels:
+        # print(label)
+"""
+
+test_data = b'{Wp48S^xk9=GL@E0stWa761SMbT8$j-~oRCe_a3@13gVnv&js}gJ*#<`r=JW$;FisDM86SrTyr8NpHDD%ixj?8TFk&F;uCNF{=jvy?BpDN7s`;znA_oi@VG5HuxOUwKAJhsf<mYhA;M2Uk-xJXezcFc4|7;C~=^6=bG;~bt2?mk_1OvdmR8Y3{5m7p-c2Wfg88l$&vs7@(xN^D{C-)00El;fCB&kj}wb#vBYQl0ssI200dcD'
+
+if __name__ == "__main__":
+    import base64
+    import io
+    import lzma
+    import sys
+
+    with io.BytesIO(base64.b85decode(test_data)) as lzma_data:
+        with lzma.open(lzma_data, "r") as lzma_file:
+            sys.stdout.buffer.write(lzma_file.read())

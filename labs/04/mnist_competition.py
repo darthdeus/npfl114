@@ -11,8 +11,10 @@ class Network:
         # Create an empty graph and a session
         graph = tf.Graph()
         graph.seed = seed
+        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.6)
         self.session = tf.Session(graph = graph, config=tf.ConfigProto(inter_op_parallelism_threads=threads,
-                                                                       intra_op_parallelism_threads=threads))
+                                                                       intra_op_parallelism_threads=threads,
+                                                                       gpu_options=gpu_options))
 
     def construct(self, args):
         with self.session.graph.as_default():
@@ -90,7 +92,7 @@ class Network:
             global_step = tf.train.create_global_step()
 
             with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
-                self.training = tf.train.AdamOptimizer().minimize(loss, global_step=global_step, name="training")
+                self.training = tf.train.AdamOptimizer(learning_rate=0.0003).minimize(loss, global_step=global_step, name="training")
 
 
             # Summaries
@@ -145,11 +147,13 @@ if __name__ == "__main__":
 
     # Parse arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument("--batch_size", default=512, type=int, help="Batch size.")
+    parser.add_argument("--batch_size", default=128, type=int, help="Batch size.")
     parser.add_argument("--cnn", default=None, type=str, help="Description of the CNN architecture.")
-    parser.add_argument("--epochs", default=20, type=int, help="Number of epochs.")
+    parser.add_argument("--epochs", default=15, type=int, help="Number of epochs.")
     parser.add_argument("--threads", default=12, type=int, help="Maximum number of threads to use.")
     args = parser.parse_args()
+    
+    args.cnn = "CB-128-3-1-same,CB-64-3-1-same,M-2-1,F,R-1024"
 
     # Create logdir name
     args.logdir = "logs/{}-{}-{}".format(
@@ -175,8 +179,14 @@ if __name__ == "__main__":
 
         network.evaluate("dev", mnist.validation.images, mnist.validation.labels)
 
-    test_labels = network.predict(mnist.test.images)
-    # TODO: Compute test_labels, as numbers 0-9, corresponding to mnist.test.images
+    labels = []
 
-    for label in test_labels:
-        print(label)
+    while mnist.test.epochs_completed == 0:
+        test_images, _ = mnist.test.next_batch(args.batch_size)
+        test_labels = network.predict(test_images)
+
+        labels.append(test_labels)
+    # TODO: Compute test_labels, as numbers 0-9, corresponding to mnist.test.images
+    np.savetxt("test-preds.csv", np.concatenate(test_labels).astype(np.int32))
+    # for label in test_labels:
+        # print(label)
