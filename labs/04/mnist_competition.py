@@ -152,7 +152,7 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", default=15, type=int, help="Number of epochs.")
     parser.add_argument("--threads", default=12, type=int, help="Maximum number of threads to use.")
     args = parser.parse_args()
-    
+
     args.cnn = "CB-128-3-1-same,CB-64-3-1-same,M-2-1,F,R-1024"
 
     # Create logdir name
@@ -165,7 +165,8 @@ if __name__ == "__main__":
 
     # Load the data
     from tensorflow.examples.tutorials import mnist
-    mnist = mnist.input_data.read_data_sets("mnist-gan", reshape=False, seed=42)
+    mnist = mnist.input_data.read_data_sets("mnist-gan", reshape=False, seed=42,
+                                            source_url="https://ufal.mff.cuni.cz/~straka/courses/npfl114/1718/mnist-gan/")
 
     # Construct the network
     network = Network(threads=args.threads)
@@ -185,8 +186,6 @@ if __name__ == "__main__":
         test_images, _ = mnist.test.next_batch(args.batch_size)
         test_labels = network.predict(test_images)
 
-        labels.append(test_labels)
-    # TODO: Compute test_labels, as numbers 0-9, corresponding to mnist.test.images
-    np.savetxt("test-preds.csv", np.concatenate(test_labels).astype(np.int32))
-    # for label in test_labels:
-        # print(label)
+    with open("mnist_competition_test.txt", "w") as test_file:
+        for label in test_labels:
+            print(label, file=test_file)
