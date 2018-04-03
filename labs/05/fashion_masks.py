@@ -2,6 +2,7 @@
 import numpy as np
 import tensorflow as tf
 
+
 class Dataset:
     def __init__(self, filename):
         data = np.load(filename)
@@ -11,6 +12,10 @@ class Dataset:
 
         self._permutation = np.random.permutation(len(self._images))
 
+    @property
+    def permutation(self):
+        return self._permutation
+        
     @property
     def images(self):
         return self._images
