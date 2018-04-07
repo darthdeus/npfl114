@@ -191,4 +191,6 @@ if __name__ == "__main__":
 
     test_labels = np.concatenate(label_groups)
 
-    np.savetxt("mnist_competition_test.txt", test_labels, fmt="%d", delimiter="\n")
+    with open("{}/mnist_competition_test.txt".format(args.logdir), "w") as test_file:
+        for label in test_labels:
+            print(label, file=test_file)
