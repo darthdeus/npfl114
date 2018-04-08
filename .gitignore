@@ -3,3 +3,4 @@
 .ipynb_checkpoints
 .idea
 __pycache__
+*_recodex_submission.py

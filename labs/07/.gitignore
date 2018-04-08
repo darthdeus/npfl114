@@ -1,2 +1,4 @@
 /nets/
 /NASNet.README
+*.pkl
+transfer_learning.txt
