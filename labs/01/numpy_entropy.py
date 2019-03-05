@@ -1,11 +1,19 @@
 #!/usr/bin/env python3
 import numpy as np
+import argparse
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--data", type=str, default="numpy_entropy_data.txt")
+    parser.add_argument("--model", type=str, default="numpy_entropy_model.txt")
+
+    args = parser.parse_args()
+
     X = []
 
     # Load data distribution, each data point on a line
-    with open("numpy_entropy_data.txt", "r") as data:
+    # with open("numpy_entropy_data.txt", "r") as data:
+    with open(args.data, "r") as data:
         for line in data:
             line = line.rstrip("\n")
 
@@ -21,7 +29,7 @@ if __name__ == "__main__":
     # Load model distribution, each line `word \t probability`.
     model_dist_map = {}
 
-    with open("numpy_entropy_model.txt", "r") as model:
+    with open(args.model, "r") as model:
         for line in model:
             line = line.rstrip("\n")
 
