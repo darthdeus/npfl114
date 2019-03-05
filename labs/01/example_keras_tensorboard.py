@@ -11,22 +11,11 @@ from mnist import MNIST
 
 # Parse arguments
 parser = argparse.ArgumentParser()
-parser.add_argument("--activation", default="none", type=str, help="Activation function.")
 parser.add_argument("--batch_size", default=50, type=int, help="Batch size.")
 parser.add_argument("--epochs", default=10, type=int, help="Number of epochs.")
 parser.add_argument("--hidden_layer", default=100, type=int, help="Size of the hidden layer.")
-parser.add_argument("--layers", default=1, type=int, help="Number of layers.")
-parser.add_argument("--recodex", default=False, action="store_true", help="Evaluation in ReCodEx.")
 parser.add_argument("--threads", default=1, type=int, help="Maximum number of threads to use.")
 args = parser.parse_args()
-
-# Fix random seeds
-np.random.seed(42)
-tf.random.set_random_seed(42)
-if args.recodex:
-    tf.keras.utils.get_custom_objects()["glorot_uniform"] = lambda: tf.keras.initializers.glorot_uniform(seed=42)
-tf.keras.backend.set_session(tf.Session(config=tf.ConfigProto(inter_op_parallelism_threads=args.threads,
-                                                              intra_op_parallelism_threads=args.threads)))
 
 # Create logdir name
 args.logdir = "logs/{}-{}-{}".format(
@@ -40,16 +29,17 @@ mnist = MNIST()
 
 # Create the model
 model = tf.keras.Sequential([
-    tf.keras.layers.InputLayer((MNIST.H, MNIST.W, MNIST.C)),
-    tf.keras.layers.Flatten(),
-    # TODO: Add `args.layers` number of hidden layers with size `args.hidden_layer`,
-    # using activation from `args.activation`, allowing "none", "relu", "tanh", "sigmoid".
-    tf.keras.layers.Dense(MNIST.LABELS, activation=tf.nn.softmax),
+    tf.keras.layers.InputLayer((MNIST.H, MNIST.W, MNIST.C), name="input_images"),
+    tf.keras.layers.Flatten(name="flatten"),
+    tf.keras.layers.Dense(args.hidden_layer, activation=tf.nn.relu, name="hidden_1"),
+    tf.keras.layers.Dense(args.hidden_layer, activation=tf.nn.relu, name="hidden_2"),
+    tf.keras.layers.Dense(args.hidden_layer, activation=tf.nn.relu, name="hidden_3"),
+    tf.keras.layers.Dense(MNIST.LABELS, activation=tf.nn.softmax, name="output_layer"),
 ])
 
 model.compile(
     optimizer=tf.keras.optimizers.Adam(),
-    loss=tf.keras.losses.sparse_categorical_crossentropy,
+    loss=tf.keras.losses.sparse_categorical_crossentropy, # SparseCategoricalCrossentropy in v2
     metrics=[tf.keras.metrics.SparseCategoricalAccuracy()],
 )
 
@@ -66,7 +56,3 @@ test_logs = model.evaluate(
     mnist.test.data["images"], mnist.test.data["labels"], batch_size=args.batch_size,
 )
 tb_callback.on_epoch_end(1, dict(("test_" + metric, value) for metric, value in zip(model.metrics_names, test_logs)))
-
-# TODO: Write test accuracy as percentages rounded to two decimal places.
-with open("mnist_layers_activations.out", "w") as out_file:
-    print("{:.2f}".format(100 * accuracy), file=out_file)
