@@ -56,8 +56,19 @@ if __name__ == "__main__":
             model_dist_map[key] = 0.0
 
 
-    model_dist = np.array(list(model_dist_map.values()))
-    data_dist = np.array(list(data_dist_map.values()))
+    assert set(model_dist_map.keys()) == set(data_dist_map.keys())
+
+    model_dist, data_dist = [], []
+
+    for key in sorted(model_dist_map.keys()):
+        model_dist.append(model_dist_map[key])
+        data_dist.append(data_dist_map[key])
+
+    model_dist = np.array(model_dist, dtype=np.float32)
+    data_dist = np.array(data_dist, dtype=np.float32)
+
+    # model_dist = np.array(list(model_dist_map.values()))
+    # data_dist = np.array(list(data_dist_map.values()))
 
     # TODO: Compute and print the entropy H(data distribution). You should not use
     # manual for/while cycles, but instead use the fact that most NumPy methods
