@@ -88,7 +88,11 @@ if __name__ == "__main__":
         kl_divergence = np.inf
     else:
         cross_entropy = -np.sum(data_dist * np.log(model_dist))
-        kl_divergence = -np.sum(data_dist * np.log(model_dist / data_dist))
+
+        if np.any(data_dist == 0.0):
+            kl_divergence = np.inf
+        else:
+            kl_divergence = -np.sum(data_dist * np.log(model_dist / data_dist))
 
     print("{:.2f}".format(cross_entropy))
     print("{:.2f}".format(kl_divergence))
