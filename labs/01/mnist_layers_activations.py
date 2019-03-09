@@ -11,7 +11,7 @@ from mnist import MNIST
 
 # Parse arguments
 parser = argparse.ArgumentParser()
-parser.add_argument("--activation", default="none", type=str, help="Activation function.")
+parser.add_argument("--activation", default=None, type=str, help="Activation function.")
 parser.add_argument("--batch_size", default=50, type=int, help="Batch size.")
 parser.add_argument("--epochs", default=10, type=int, help="Number of epochs.")
 parser.add_argument("--hidden_layer", default=100, type=int, help="Size of the hidden layer.")
@@ -19,6 +19,9 @@ parser.add_argument("--layers", default=1, type=int, help="Number of layers.")
 parser.add_argument("--recodex", default=False, action="store_true", help="Evaluation in ReCodEx.")
 parser.add_argument("--threads", default=1, type=int, help="Maximum number of threads to use.")
 args = parser.parse_args()
+
+if args.activation == "none":
+    args.activation = None
 
 # Fix random seeds
 np.random.seed(42)
@@ -44,6 +47,8 @@ model = tf.keras.Sequential([
     tf.keras.layers.Flatten(),
     # TODO: Add `args.layers` number of hidden layers with size `args.hidden_layer`,
     # using activation from `args.activation`, allowing "none", "relu", "tanh", "sigmoid".
+    *[tf.keras.layers.Dense(args.hidden_layer, activation=args.activation, name=f"hidden_{i}")
+        for i in range(args.layers)],
     tf.keras.layers.Dense(MNIST.LABELS, activation=tf.nn.softmax),
 ])
 
@@ -69,4 +74,4 @@ tb_callback.on_epoch_end(1, dict(("test_" + metric, value) for metric, value in 
 
 # TODO: Write test accuracy as percentages rounded to two decimal places.
 with open("mnist_layers_activations.out", "w") as out_file:
-    print("{:.2f}".format(100 * accuracy), file=out_file)
+    print("{:.2f}".format(100 * test_logs[1]), file=out_file)

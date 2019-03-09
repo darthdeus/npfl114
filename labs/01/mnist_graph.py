@@ -24,6 +24,9 @@ class Network:
             # TODO: Add `args.layers` number of hidden layers with size `args.hidden_layer`,
             # using activation from `args.activation`, allowing "none", "relu", "tanh", "sigmoid".
             # Store the results back to `hidden` variable.
+            for i in range(args.layers):
+                hidden = tf.keras.layers.Dense(args.hidden_layer, activation=args.activation)(hidden)
+
             output_layer = tf.keras.layers.Dense(MNIST.LABELS)(hidden)
             self.predictions = tf.argmax(output_layer, axis=1)
 
@@ -59,7 +62,8 @@ class Network:
         self.session.run([self.training, self.summaries["train"]], {self.images: images, self.labels: labels})
 
     def evaluate(self, dataset, images, labels):
-        self.session.run(self.summaries[dataset], {self.images: images, self.labels: labels})
+        preds, _ = self.session.run([self.predictions, self.summaries[dataset]], {self.images: images, self.labels: labels})
+        return preds
 
 
 if __name__ == "__main__":
@@ -78,6 +82,9 @@ if __name__ == "__main__":
     parser.add_argument("--recodex", default=False, action="store_true", help="Evaluation in ReCodEx.")
     parser.add_argument("--threads", default=1, type=int, help="Maximum number of threads to use.")
     args = parser.parse_args()
+
+    if args.activation == "none":
+        args.activation = None
 
     # Fix random seeds
     np.random.seed(42)
@@ -106,7 +113,9 @@ if __name__ == "__main__":
             network.train(batch["images"], batch["labels"])
 
         network.evaluate("dev", mnist.dev.data["images"], mnist.dev.data["labels"])
-    network.evaluate("test", mnist.test.data["images"], mnist.test.data["labels"])
+    y_pred = network.evaluate("test", mnist.test.data["images"], mnist.test.data["labels"])
+
+    accuracy = np.mean(mnist.test.data["labels"] == y_pred)
 
     # TODO: Write test accuracy as percentages rounded to two decimal places.
     with open("mnist_graph.out", "w") as out_file:
