@@ -28,22 +28,21 @@ args.logdir = os.path.join("logs", "{}-{}-{}".format(
 mnist = MNIST()
 
 # Create the model
-model = tf.keras.Sequential([
-    tf.keras.layers.InputLayer((MNIST.H, MNIST.W, MNIST.C), name="input_images"),
-    tf.keras.layers.Flatten(name="flatten"),
-    tf.keras.layers.Dense(args.hidden_layer, activation=tf.nn.relu, name="hidden_1"),
-    tf.keras.layers.Dense(args.hidden_layer, activation=tf.nn.relu, name="hidden_2"),
-    tf.keras.layers.Dense(args.hidden_layer, activation=tf.nn.relu, name="hidden_3"),
-    tf.keras.layers.Dense(MNIST.LABELS, activation=tf.nn.softmax, name="output_layer"),
-])
+inputs = tf.keras.layers.Input(shape=[MNIST.H, MNIST.W, MNIST.C])
+flattened = tf.keras.layers.Flatten()(inputs)
+hidden_1 = tf.keras.layers.Dense(args.hidden_layer, activation=tf.nn.relu)(flattened)
+hidden_2 = tf.keras.layers.Dense(args.hidden_layer, activation=tf.nn.relu)(hidden_1)
+concatenated = tf.keras.layers.Concatenate(axis=1)([hidden_1, hidden_2])
+outputs = tf.keras.layers.Dense(MNIST.LABELS)(concatenated)
+model = tf.keras.Model(inputs=inputs, outputs=outputs)
 
 model.compile(
     optimizer=tf.keras.optimizers.Adam(),
-    loss=tf.keras.losses.SparseCategoricalCrossentropy(),
+    loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
     metrics=[tf.keras.metrics.SparseCategoricalAccuracy()],
 )
 
-tb_callback=tf.keras.callbacks.TensorBoard(args.logdir, histogram_freq=1, update_freq=1000, profile_batch=1)
+tb_callback=tf.keras.callbacks.TensorBoard(args.logdir, update_freq=1000, profile_batch=1)
 tb_callback.on_train_end = lambda *_: None
 model.fit(
     mnist.train.data["images"], mnist.train.data["labels"],
