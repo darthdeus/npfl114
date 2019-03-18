@@ -1,0 +1,35 @@
+diff --git a/labs/01/mnist_layers_activations.py b/labs/01/mnist_layers_activations.py
+index ff78985..be93723 100644
+--- a/labs/01/mnist_layers_activations.py
++++ b/labs/01/mnist_layers_activations.py
+@@ -41,14 +41,23 @@ args.logdir = "logs/{}-{}-{}".format(
+ # Load data
+ mnist = MNIST()
+
++class Dynamic(tf.keras.layers.Layer):
++    def call(self, inputs):
++        if tf.reduce_max(inputs) < 10:
++            inputs = inputs * 5
++
++        return inputs
++
+ # Create the model
+ model = tf.keras.Sequential([
+     tf.keras.layers.InputLayer((MNIST.H, MNIST.W, MNIST.C)),
+     tf.keras.layers.Flatten(),
+     # TODO: Add `args.layers` number of hidden layers with size `args.hidden_layer`,
+     # using activation from `args.activation`, allowing "none", "relu", "tanh", "sigmoid".
+-    *[tf.keras.layers.Dense(args.hidden_layer, activation=args.activation, name=f"hidden_{i}")
++    *[tf.keras.layers.Dense(args.hidden_layer, activation=args.activation, name="hidden_{}".format(i))
+         for i in range(args.layers)],
++
++    Dynamic(),
+     tf.keras.layers.Dense(MNIST.LABELS, activation=tf.nn.softmax),
+ ])
+
+@@ -56,6 +65,7 @@ model.compile(
+     optimizer=tf.keras.optimizers.Adam(),
+     loss=tf.keras.losses.sparse_categorical_crossentropy,
+     metrics=[tf.keras.metrics.SparseCategoricalAccuracy()],
++    run_eagerly=True
+ )
