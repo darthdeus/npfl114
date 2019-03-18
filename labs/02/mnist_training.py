@@ -61,12 +61,42 @@ model = tf.keras.Sequential([
 # If a learning rate schedule is used, you can find out current learning rate
 # by using `model.optimizer.learning_rate(model.optimizer.iterations)`,
 # so after training this value should be `args.learning_rate_final`.
+decay_steps = mnist.train.size * args.epochs // args.batch_size
+
+if args.decay is None:
+    lr = args.learning_rate
+elif args.decay == "polynomial":
+    lr = tf.keras.optimizers.schedules.PolynomialDecay(args.learning_rate,
+            decay_steps, args.learning_rate_final)
+elif args.decay == "exponential":
+    lr = tf.keras.optimizers.schedules.ExponentialDecay(args.learning_rate,
+            decay_steps, args.learning_rate_final / args.learning_rate)
+else:
+    raise NotImplementedError()
+
+
+if args.optimizer == "SGD":
+    optimizer = tf.keras.optimizers.SGD(lr, momentum=(args.momentum or 0.0))
+elif args.optimizer == "Adam":
+    optimizer = tf.keras.optimizers.Adam(lr)
+else:
+    raise NotImplementedError()
 
 model.compile(
-    optimizer=None,
+    optimizer=optimizer,
     loss=tf.keras.losses.SparseCategoricalCrossentropy(),
     metrics=[tf.keras.metrics.SparseCategoricalAccuracy()],
 )
+
+
+class LRLoggerCallback(tf.keras.callbacks.Callback):
+    def on_batch_begin(self, batch, logs=None):
+        if args.decay is None:
+            logs["learning_rate"] = args.learning_rate
+        else:
+            logs["learning_rate"] = model.optimizer.learning_rate(model.optimizer.iterations)
+
+# print("Final LR = {}".format(model.optimizer.learning_rate(model.optimizer.iterations)))
 
 tb_callback=tf.keras.callbacks.TensorBoard(args.logdir, histogram_freq=1, update_freq=1000, profile_batch=1)
 tb_callback.on_train_end = lambda *_: None
@@ -74,13 +104,17 @@ model.fit(
     mnist.train.data["images"], mnist.train.data["labels"],
     batch_size=args.batch_size, epochs=args.epochs,
     validation_data=(mnist.dev.data["images"], mnist.dev.data["labels"]),
-    callbacks=[tb_callback],
+    callbacks=[tb_callback, LRLoggerCallback()],
 )
 
 test_logs = model.evaluate(
     mnist.test.data["images"], mnist.test.data["labels"], batch_size=args.batch_size,
 )
 tb_callback.on_epoch_end(1, dict(("val_test_" + metric, value) for metric, value in zip(model.metrics_names, test_logs)))
+
+accuracy = test_logs[1]
+
+# print("Final LR = {}".format(model.optimizer.learning_rate(model.optimizer.iterations)))
 
 # TODO: Write test accuracy as percentages rounded to two decimal places.
 with open("mnist_training", "w") as out_file:

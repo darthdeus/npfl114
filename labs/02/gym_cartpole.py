@@ -6,13 +6,16 @@ import re
 
 import numpy as np
 import tensorflow as tf
+from tensorflow.keras import layers
 
 # Parse arguments
 # TODO: Set reasonable defaults and possibly add more arguments.
 parser = argparse.ArgumentParser()
-parser.add_argument("--batch_size", default=None, type=int, help="Batch size.")
-parser.add_argument("--epochs", default=None, type=int, help="Number of epochs.")
-parser.add_argument("--threads", default=1, type=int, help="Maximum number of threads to use.")
+parser.add_argument("--batch_size", default=64, type=int, help="Batch size.")
+parser.add_argument("--epochs", default=50, type=int, help="Number of epochs.")
+parser.add_argument("--layers", default=1, type=int, help="Number of hidden layers.")
+parser.add_argument("--units", default=100, type=int, help="Number of units in the hidden layers.")
+parser.add_argument("--threads", default=12, type=int, help="Maximum number of threads to use.")
 args = parser.parse_args()
 
 # Fix random seeds
@@ -41,7 +44,14 @@ observations, labels = np.array(observations), np.array(labels)
 # However, beware that there is currently a bug in Keras which does
 # not correctly serialize InputLayer. Instead of using an InputLayer,
 # pass explicitly `input_shape` to the first real model layer.
-model = None
+model = tf.keras.Sequential([
+    layers.Dense(args.units, activation="relu", input_shape=[4,]),
+
+    *[layers.Dense(args.units, activation="relu")
+        for i in range(args.layers)],
+
+    layers.Dense(4, activation="softmax"),
+])
 
 model.compile(
     optimizer=tf.keras.optimizers.Adam(),
