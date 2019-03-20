@@ -50,7 +50,7 @@ model = tf.keras.Sequential([
     *[layers.Dense(args.units, activation="relu")
         for i in range(args.layers)],
 
-    layers.Dense(4, activation="softmax"),
+    layers.Dense(2, activation="softmax"),
 ])
 
 model.compile(
