@@ -13,7 +13,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("model", default="gym_cartpole_model.h5", nargs="?", type=str, help="Name of model.")
 parser.add_argument("--episodes", default=100, type=int, help="Number of episodes.")
 parser.add_argument("--render", default=False, action="store_true", help="Render the environment.")
-parser.add_argument("--threads", default=12, type=int, help="Maximum number of threads to use.")
+parser.add_argument("--threads", default=1, type=int, help="Maximum number of threads to use.")
 args = parser.parse_args()
 
 # Use given number of threads
