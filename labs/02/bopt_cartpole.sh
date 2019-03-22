@@ -1,5 +1,5 @@
 #!/bin/bash
-set -x
+set -e
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
@@ -12,5 +12,4 @@ cd $DIR
 export JOB_ID=${JOB_ID:-$$}
 
 $DIR/../.venv/bin/python $DIR/gym_cartpole.py $@
-$DIR/../.venv/bin/python $DIR/gym_cartpole_evaluate.py gym_cartpole$JOB_ID.h5
-
+$DIR/../.venv/bin/python $DIR/gym_cartpole_evaluate.py models/gym_cartpole$JOB_ID.h5

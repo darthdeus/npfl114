@@ -67,4 +67,4 @@ model.fit(observations, labels, batch_size=args.batch_size, epochs=args.epochs, 
 import os
 job_id = os.environ["JOB_ID"]
 
-model.save("gym_cartpole_model{}.h5".format(job_id), include_optimizer=False)
+model.save("models/gym_cartpole_model{}.h5".format(job_id), include_optimizer=False)
