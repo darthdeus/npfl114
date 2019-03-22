@@ -18,6 +18,8 @@ parser.add_argument("--units", default=100, type=int, help="Number of units in t
 parser.add_argument("--threads", default=1, type=int, help="Maximum number of threads to use.")
 args = parser.parse_args()
 
+print("Starting with args {}".format(args))
+
 # Fix random seeds
 np.random.seed(42)
 tf.random.set_seed(42)
@@ -60,7 +62,7 @@ model.compile(
 )
 
 tb_callback=tf.keras.callbacks.TensorBoard(args.logdir)
-model.fit(observations, labels, batch_size=args.batch_size, epochs=args.epochs, callbacks=[tb_callback])
+model.fit(observations, labels, batch_size=args.batch_size, epochs=args.epochs, callbacks=[tb_callback], verbose=False)
 
 import os
 job_id = os.environ["JOB_ID"]

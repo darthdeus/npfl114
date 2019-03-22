@@ -1,10 +1,16 @@
-rm -rf ./cartpole/
+#!/bin/bash
 
-$PWD/../.venv/bin/bopt init \
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+
+cd $DIR
+
+rm -rf $DIR/cartpole/
+
+$DIR/../.venv/bin/bopt init \
         --param "batch_size:int:2:100" \
         --param "epochs:int:1:100" \
         --param "layers:int:2:10" \
         --param "units:int:2:50" \
         -C cartpole \
-        --runner sge \
-        $PWD/bopt_cartpole.sh
+        --runner local \
+        $DIR/bopt_cartpole.sh
