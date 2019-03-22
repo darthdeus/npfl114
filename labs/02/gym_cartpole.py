@@ -15,7 +15,7 @@ parser.add_argument("--batch_size", default=64, type=int, help="Batch size.")
 parser.add_argument("--epochs", default=50, type=int, help="Number of epochs.")
 parser.add_argument("--layers", default=1, type=int, help="Number of hidden layers.")
 parser.add_argument("--units", default=100, type=int, help="Number of units in the hidden layers.")
-parser.add_argument("--threads", default=12, type=int, help="Maximum number of threads to use.")
+parser.add_argument("--threads", default=1, type=int, help="Maximum number of threads to use.")
 args = parser.parse_args()
 
 # Fix random seeds
@@ -62,4 +62,7 @@ model.compile(
 tb_callback=tf.keras.callbacks.TensorBoard(args.logdir)
 model.fit(observations, labels, batch_size=args.batch_size, epochs=args.epochs, callbacks=[tb_callback])
 
-model.save("gym_cartpole_model.h5", include_optimizer=False)
+import os
+job_id = os.environ["JOB_ID"]
+
+model.save("gym_cartpole_model{}.h5".format(job_id), include_optimizer=False)

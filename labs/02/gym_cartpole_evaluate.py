@@ -44,4 +44,4 @@ for episode in range(args.episodes):
     print("The episode {} finished with score {}.".format(episode + 1, score))
 
 # print("The average reward per episode was {:.2f}.".format(total_score / args.episodes))
-print("{:.2f}".format(total_score / args.episodes))
+print("RESULT={:.2f}".format(total_score / args.episodes))
