@@ -5,6 +5,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd $DIR
 
 rm -rf $DIR/cartpole/
+rm models/*
 
 $DIR/../.venv/bin/bopt init \
         --param "batch_size:int:2:100" \

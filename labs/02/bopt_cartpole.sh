@@ -12,4 +12,4 @@ cd $DIR
 export JOB_ID=${JOB_ID:-$$}
 
 $DIR/../.venv/bin/python $DIR/gym_cartpole.py $@
-$DIR/../.venv/bin/python $DIR/gym_cartpole_evaluate.py models/gym_cartpole$JOB_ID.h5
+$DIR/../.venv/bin/python $DIR/gym_cartpole_evaluate.py models/gym_cartpole_model$JOB_ID.h5
