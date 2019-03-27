@@ -35,7 +35,15 @@ for episode in range(args.episodes):
     for i in range(env.spec.timestep_limit):
         if args.render:
             env.render()
-        observation, reward, done, info = env.step(np.argmax(model.predict(observation[np.newaxis, ...])[0]))
+        prediction = model.predict(observation[np.newaxis, ...])[0]
+        if len(prediction) == 1:
+            action = prediction[0] >= 0.5
+        elif len(prediction) == 2:
+            action = np.argmax(prediction)
+        else:
+            raise ValueError("Unknown model output shape, only 1 or 2 outputs are supported")
+
+        observation, reward, done, info = env.step(action)
         score += reward
         if done:
             break
