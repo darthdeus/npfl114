@@ -14,6 +14,7 @@ $DIR/../.venv/bin/bopt init \
         --param "batch_size:logscale_int:2:1024" \
         --param "epochs:logscale_int:1:30" \
         --param "units:logscale_int:2:200" \
+        --param "embedding:logscale_int:4:512" \
         --param "layers:int:2:10" \
         --param "window:int:1:11" \
         -C up \
