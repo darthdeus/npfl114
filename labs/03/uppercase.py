@@ -17,6 +17,7 @@ parser.add_argument("--epochs", default=10, type=int, help="Number of epochs.")
 
 parser.add_argument("--units", default=128, type=int, help="Number of hidden units.")
 parser.add_argument("--layers", default=2, type=int, help="Number of hidden layers.")
+parser.add_argument("--embedding", default=32, type=int, help="Embedding size.")
 
 parser.add_argument("--hidden_layers", default="128,128", type=str, help="Hidden layer configuration.")
 parser.add_argument("--threads", default=1, type=int, help="Maximum number of threads to use.")
@@ -68,7 +69,7 @@ from tensorflow.keras import layers
 
 model = tf.keras.Sequential([
     layers.InputLayer(input_shape=[2 * args.window + 1], dtype=tf.int32),
-    layers.Embedding(args.alphabet_size, 32, input_length=args.window),
+    layers.Embedding(args.alphabet_size, args.embedding, input_length=args.window),
     layers.Flatten(),
     # layers.Lambda(lambda x: tf.one_hot(x, len(uppercase_data.train.alphabet), axis=1)),
 
@@ -89,7 +90,7 @@ def predict_data(dataset, fname):
         preds = model.predict(dataset.data["windows"], batch_size=args.batch_size)
         preds = np.argmax(preds, axis=1)
 
-        capitalized_text = "".join([c.capitalize() if u else c for c, u in zip(dataset.text, preds)])
+        capitalized_text = "".join([c.capitalize() if u else c for c, u in zip(dataset.text.lower(), preds)])
 
         print(capitalized_text, file=out_file)
         # TODO: Generate correctly capitalized test set.
