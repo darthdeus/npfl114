@@ -14,6 +14,10 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--alphabet_size", default=30, type=int, help="If nonzero, limit alphabet to this many most frequent chars.")
 parser.add_argument("--batch_size", default=50, type=int, help="Batch size.")
 parser.add_argument("--epochs", default=10, type=int, help="Number of epochs.")
+
+parser.add_argument("--units", default=128, type=int, help="Number of hidden units.")
+parser.add_argument("--layers", default=2, type=int, help="Number of hidden layers.")
+
 parser.add_argument("--hidden_layers", default="128,128", type=str, help="Hidden layer configuration.")
 parser.add_argument("--threads", default=1, type=int, help="Maximum number of threads to use.")
 parser.add_argument("--window", default=3, type=int, help="Window size to use.")
@@ -68,14 +72,17 @@ model = tf.keras.Sequential([
     layers.Flatten(),
     # layers.Lambda(lambda x: tf.one_hot(x, len(uppercase_data.train.alphabet), axis=1)),
 
-    *[layers.Dense(l, activation=tf.nn.relu) for l in args.hidden_layers],
+    *[layers.Dense(args.units, activation=tf.nn.relu) for _ in range(args.layers)],
 
     layers.Dense(2, activation=tf.nn.softmax)
 ])
 
 model.compile(optimizer="adam", loss="sparse_categorical_crossentropy")
 
-model.fit(uppercase_data.train.data["windows"], uppercase_data.train.data["labels"], batch_size=args.batch_size)
+model.fit(uppercase_data.train.data["windows"],
+        uppercase_data.train.data["labels"],
+        batch_size=args.batch_size,
+        epochs=args.epochs)
 
 def predict_data(dataset, fname):
     with open(fname, "w", encoding="utf-8") as out_file:
