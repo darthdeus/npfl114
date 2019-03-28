@@ -45,6 +45,10 @@ mnist = MNIST()
 # and use it for all kernels and biases of all Dense layers. Note that
 # because of a bug if `args.l2` is zero, use `None` instead of `L1L2` regularizer
 # with zero l2.
+if args.l2 > 0:
+    regularizer = tf.keras.regularizers.L1L2(l2=args.l2)
+else:
+    regularizer = None
 
 # TODO: Implement dropout.
 # Add a `tf.keras.layers.Dropout` with `args.dropout` rate after the Flatten
@@ -53,9 +57,15 @@ mnist = MNIST()
 # Create the model
 model = tf.keras.Sequential()
 model.add(tf.keras.layers.Flatten(input_shape=[MNIST.H, MNIST.W, MNIST.C]))
+model.add(tf.keras.layers.Dropout(rate=args.dropout))
+
 for hidden_layer in args.hidden_layers:
-    model.add(tf.keras.layers.Dense(hidden_layer, activation=tf.nn.relu))
-model.add(tf.keras.layers.Dense(MNIST.LABELS))
+    model.add(tf.keras.layers.Dense(hidden_layer, activation=tf.nn.relu,
+            kernel_regularizer=regularizer,
+            bias_regularizer=regularizer))
+    model.add(tf.keras.layers.Dropout(rate=args.dropout))
+
+model.add(tf.keras.layers.Dense(MNIST.LABELS, kernel_regularizer=regularizer, bias_regularizer=regularizer))
 
 # TODO: Implement label smoothing.
 # Apply the given smoothing. You will need to change the
@@ -68,20 +78,24 @@ model.add(tf.keras.layers.Dense(MNIST.LABELS))
 
 model.compile(
     optimizer=tf.keras.optimizers.Adam(),
-    loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-    metrics=[tf.keras.metrics.SparseCategoricalAccuracy(name="accuracy")],
+    loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True, label_smoothing=args.label_smoothing),
+    metrics=[tf.keras.metrics.CategoricalAccuracy(name="accuracy")],
 )
+
+train_labels = tf.keras.utils.to_categorical(mnist.train.data["labels"])
+dev_labels = tf.keras.utils.to_categorical(mnist.dev.data["labels"])
+test_labels = tf.keras.utils.to_categorical(mnist.test.data["labels"])
 
 tb_callback=tf.keras.callbacks.TensorBoard(args.logdir, update_freq=1000, profile_batch=1)
 tb_callback.on_train_end = lambda *_: None
 model.fit(
-    mnist.train.data["images"][:5000], mnist.train.data["labels"][:5000],
+    mnist.train.data["images"][:5000], train_labels[:5000],
     batch_size=args.batch_size, epochs=args.epochs,
-    validation_data=(mnist.dev.data["images"], mnist.dev.data["labels"]),
+    validation_data=(mnist.dev.data["images"], dev_labels),
     callbacks=[tb_callback],
 )
 
-test_logs = model.evaluate(mnist.test.data["images"], mnist.test.data["labels"], batch_size=args.batch_size)
+test_logs = model.evaluate(mnist.test.data["images"], test_labels, batch_size=args.batch_size)
 tb_callback.on_epoch_end(1, dict(("val_test_" + metric, value) for metric, value in zip(model.metrics_names, test_logs)))
 
 accuracy = test_logs[model.metrics_names.index("accuracy")]

@@ -55,7 +55,8 @@ with open("mnist_ensemble.out", "w") as out_file:
     for model in range(args.models):
         # TODO: Compute the accuracy on the dev set for
         # the individual `models[model]`.
-        individual_accuracy = None
+        individual_accuracy = models[model].evaluate(mnist.dev.data["images"], mnist.dev.data["labels"],
+                batch_size=args.batch_size)[1]
 
         # TODO: Compute the accuracy on the dev set for
         # the ensemble `models[0:model+1].
@@ -73,7 +74,15 @@ with open("mnist_ensemble.out", "w") as out_file:
         #    and instead call `model.predict` on individual models and
         #    average the results. To measure accuracy, either do it completely
         #    manually or use tf.keras.metrics.SparseCategoricalAccuracy.
-        ensemble_accuracy = None
+
+        __import__('ipdb').set_trace()
+        avg = tf.keras.layers.Average()(*[m(mnist.dev.data["images"]) for m in models[0:model+1]])
+        macc = []
+        for m in models[0:model+1]:
+            preds = m.predict(mnist.dev.data["images"], mnist.dev.data["labels"], batch_size=args.batch_size)[1]
+            macc.append(preds)
+
+        ensemble_accuracy = float(np.mean(macc).item())
 
         # Print the results.
         print("{:.2f} {:.2f}".format(100 * individual_accuracy, 100 * ensemble_accuracy), file=out_file)
