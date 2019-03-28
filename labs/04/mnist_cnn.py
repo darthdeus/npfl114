@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import numpy as np
 import tensorflow as tf
+from tensorflow.keras import layers
 
 from mnist import MNIST
 
@@ -23,6 +24,45 @@ class Network(tf.keras.Model):
         # - `F`: Flatten inputs. Must appear exactly once in the architecture.
         # - `D-hidden_layer_size`: Add a dense layer with ReLU activation and specified size.
         # Produce the results in variable `hidden`.
+        hidden = inputs
+
+        all_layers = []
+
+        config_str = args.cnn
+        config_str = config_str.replace("-[", ",")
+        config_str = config_str.replace("]", ",END")
+
+        configs = config_str.split(",")
+
+        for config in configs:
+            layer, *params = config.split("-")
+
+            if layer == "C":
+                hidden = layers.Conv2D(filters=int(params[0]),
+                        kernel_size=int(params[1]), strides=int(params[2]),
+                        padding=params[3], activation="relu")(hidden)
+            elif layer == "CB":
+                hidden = layers.Conv2D(filters=int(params[0]),
+                        kernel_size=int(params[1]), strides=int(params[2]),
+                        padding=params[3], activation=None,
+                        use_bias=False)(hidden)
+
+                hidden = layers.BatchNormalization()(hidden)
+                hidden = layers.Activation("relu")(hidden)
+            elif layer == "M":
+                hidden = layers.MaxPool2D(int(params[0]), int(params[1]))(hidden)
+            elif layer == "R":
+                res_input = hidden
+            elif layer == "END":
+                hidden = layers.Add()([res_input, hidden])
+            elif layer == "F":
+                hidden = layers.Flatten()(hidden)
+            elif layer == "D":
+                hidden = layers.Dense(int(params[0]), activation="relu")(hidden)
+            else:
+                raise NotImplementedError()
+
+            all_layers.append(hidden)
 
         # Add the final output layer
         outputs = tf.keras.layers.Dense(MNIST.LABELS, activation=tf.nn.softmax)(hidden)
