@@ -7,6 +7,8 @@ cd $DIR
 rm -rf $DIR/up/
 rm -f tmp/*
 
+runner=${1:-sge}
+
 $DIR/../.venv/bin/bopt init \
         --param "alphabet_size:logscale_int:5:100" \
         --param "batch_size:logscale_int:2:1024" \
@@ -15,5 +17,5 @@ $DIR/../.venv/bin/bopt init \
         --param "layers:int:2:10" \
         --param "window:int:1:11" \
         -C up \
-        --runner sge \
+        --runner $runner \
         $DIR/bopt_uppercase.sh
