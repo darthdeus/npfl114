@@ -93,10 +93,6 @@ def predict_data(dataset, fname):
         capitalized_text = "".join([c.capitalize() if u else c for c, u in zip(dataset.text.lower(), preds)])
 
         print(capitalized_text, file=out_file)
-        # TODO: Generate correctly capitalized test set.
-        # Use `uppercase_data.test.text` as input, capitalize suitable characters,
-        # and write the result to `uppercase_test.txt` file.
-        pass
 
 predict_data(uppercase_data.dev, args.dev_out_fname)
 predict_data(uppercase_data.test, args.test_out_fname)
