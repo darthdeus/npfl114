@@ -3,6 +3,7 @@ import argparse
 
 import numpy as np
 import tensorflow as tf
+from tensorflow.keras import layers
 
 from mnist import MNIST
 
@@ -74,15 +75,30 @@ with open("mnist_ensemble.out", "w") as out_file:
         #    and instead call `model.predict` on individual models and
         #    average the results. To measure accuracy, either do it completely
         #    manually or use tf.keras.metrics.SparseCategoricalAccuracy.
+        input_shape = [MNIST.H, MNIST.W, MNIST.C]
 
-        __import__('ipdb').set_trace()
-        avg = tf.keras.layers.Average()(*[m(mnist.dev.data["images"]) for m in models[0:model+1]])
-        macc = []
-        for m in models[0:model+1]:
-            preds = m.predict(mnist.dev.data["images"], mnist.dev.data["labels"], batch_size=args.batch_size)[1]
-            macc.append(preds)
+        ensemble_input = layers.Input(shape=input_shape)
 
-        ensemble_accuracy = float(np.mean(macc).item())
+        if len(models[0:model+1]) > 1:
+            avg = tf.keras.layers.Average()([m(ensemble_input) for m in models[0:model+1]])
+        else:
+            avg = models[model](ensemble_input)
+
+        mod = tf.keras.Model(inputs=ensemble_input, outputs=avg)
+        mod.compile("adam", "sparse_categorical_crossentropy",
+                metrics=[tf.keras.metrics.SparseCategoricalAccuracy(name="fujacc")])
+
+        evals = mod.evaluate(mnist.dev.data["images"], mnist.dev.data["labels"], batch_size=args.batch_size)
+        ensemble_accuracy = evals[1]
+
+        # __import__('ipdb').set_trace()
+        # avg = tf.keras.layers.Average()(*[m(mnist.dev.data["images"]) for m in models[0:model+1]])
+        # macc = []
+        # for m in models[0:model+1]:
+        #     preds = m.predict(mnist.dev.data["images"], mnist.dev.data["labels"], batch_size=args.batch_size)[1]
+        #     macc.append(preds)
+        #
+        # ensemble_accuracy = float(np.mean(macc).item())
 
         # Print the results.
         print("{:.2f} {:.2f}".format(100 * individual_accuracy, 100 * ensemble_accuracy), file=out_file)
