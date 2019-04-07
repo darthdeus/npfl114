@@ -18,9 +18,10 @@ parser.add_argument("--epochs", default=10, type=int, help="Number of epochs.")
 parser.add_argument("--units", default=128, type=int, help="Number of hidden units.")
 parser.add_argument("--layers", default=2, type=int, help="Number of hidden layers.")
 parser.add_argument("--embedding", default=32, type=int, help="Embedding size.")
+parser.add_argument("--dropout", default=0.0, type=float, help="Dropout rate.")
 
 parser.add_argument("--hidden_layers", default="128,128", type=str, help="Hidden layer configuration.")
-parser.add_argument("--threads", default=1, type=int, help="Maximum number of threads to use.")
+parser.add_argument("--threads", default=8, type=int, help="Maximum number of threads to use.")
 parser.add_argument("--window", default=3, type=int, help="Window size to use.")
 
 parser.add_argument("--dev_out_fname", default="tmp/uppercase_dev_out.txt", type=str, help="Name of the output file.")
@@ -73,10 +74,13 @@ model = tf.keras.Sequential([
     layers.Flatten(),
     # layers.Lambda(lambda x: tf.one_hot(x, len(uppercase_data.train.alphabet), axis=1)),
 
-    *[layers.Dense(args.units, activation=tf.nn.relu) for _ in range(args.layers)],
-
-    layers.Dense(2, activation=tf.nn.softmax)
 ])
+
+for _ in range(args.layers):
+    model.add(layers.Dense(args.units, activation=tf.nn.relu))
+    model.add(layers.Dropout(args.dropout))
+
+model.add(layers.Dense(2, activation=tf.nn.softmax))
 
 model.compile(optimizer="adam", loss="sparse_categorical_crossentropy")
 
