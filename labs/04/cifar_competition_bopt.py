@@ -7,7 +7,7 @@ from cifar10 import CIFAR10
 
 # The neural network model
 class Network(tf.keras.Model):
-    def __init__(self, args):
+    def __init__(self, args, cifar):
         inputs = tf.keras.layers.Input(shape=[CIFAR10.H, CIFAR10.W, CIFAR10.C])
 
         # TODO: Add CNN layers specified by `args.cnn`, which contains
@@ -51,52 +51,40 @@ class Network(tf.keras.Model):
         hidden = layers.Flatten()(hidden)
 
         hidden = layers.Dense(1024, activation="relu")(hidden)
-
-        # all_layers = []
-        #
-        # config_str = args.cnn
-        # config_str = config_str.replace("-[", ",")
-        # config_str = config_str.replace("]", ",END")
-        #
-        # configs = config_str.split(",")
-        #
-        # for config in configs:
-        #     layer, *params = config.split("-")
-        #
-        #     if layer == "C":
-        #         hidden = layers.Conv2D(filters=int(params[0]),
-        #                 kernel_size=int(params[1]), strides=int(params[2]),
-        #                 padding=params[3], activation="relu")(hidden)
-        #     elif layer == "CB":
-        #         hidden = layers.Conv2D(filters=int(params[0]),
-        #                 kernel_size=int(params[1]), strides=int(params[2]),
-        #                 padding=params[3], activation=None,
-        #                 use_bias=False)(hidden)
-        #
-        #         hidden = layers.BatchNormalization()(hidden)
-        #         hidden = layers.Activation("relu")(hidden)
-        #     elif layer == "M":
-        #         hidden = layers.MaxPool2D(int(params[0]), int(params[1]))(hidden)
-        #     elif layer == "R":
-        #         res_input = hidden
-        #     elif layer == "END":
-        #         hidden = layers.Add()([res_input, hidden])
-        #     elif layer == "F":
-        #         hidden = layers.Flatten()(hidden)
-        #     elif layer == "D":
-        #         hidden = layers.Dense(int(params[0]), activation="relu")(hidden)
-        #     else:
-        #         raise NotImplementedError()
-        #
-        #     all_layers.append(hidden)
+        hidden = layers.Dropout(args.dropout)(hidden)
 
         # Add the final output layer
-        outputs = tf.keras.layers.Dense(CIFAR10.LABELS, activation=tf.nn.softmax)(hidden)
+        outputs = tf.keras.layers.Dense(cifar.LABELS, activation=tf.nn.softmax)(hidden)
 
         super().__init__(inputs=inputs, outputs=outputs)
 
+        if args.learning_rate_final > args.learning_rate:
+            args.learning_rate_final = args.learning_rate
+
+        decay_steps = cifar.train.size * args.epochs // args.batch_size
+
+        if args.decay == "polynomial":
+            lr = tf.keras.optimizers.schedules.PolynomialDecay(args.learning_rate,
+                    decay_steps, args.learning_rate_final)
+        elif args.decay == "exponential":
+            lr = tf.keras.optimizers.schedules.ExponentialDecay(args.learning_rate,
+                    decay_steps, args.learning_rate_final / args.learning_rate)
+        else:
+            raise NotImplementedError()
+
+
+        if args.optimizer == "SGD":
+            optimizer = tf.keras.optimizers.SGD(lr, momentum=(args.momentum or 0.0))
+        elif args.optimizer == "Adam":
+            optimizer = tf.keras.optimizers.Adam(lr)
+        else:
+            raise NotImplementedError()
+
+        print("ARGS: {}".format(args))
+
         self.compile(
-            optimizer=tf.keras.optimizers.Adam(),
+            # optimizer=tf.keras.optimizers.Adam(args.learning_rate),
+            optimizer=optimizer,
             loss=tf.keras.losses.SparseCategoricalCrossentropy(),
             metrics=[tf.keras.metrics.SparseCategoricalAccuracy(name="accuracy")],
         )
@@ -104,19 +92,6 @@ class Network(tf.keras.Model):
         self.tb_callback=tf.keras.callbacks.TensorBoard(args.logdir, update_freq=1000, profile_batch=1)
         self.tb_callback.on_train_end = lambda *_: None
 
-
-        # Original zadani
-        # # TODO: Define a suitable model, by calling `super().__init__`
-        # # with appropriate inputs and outputs.
-        # #
-        # # Alternatively, if you prefer to use a `tf.keras.Sequential`,
-        # # replace the `Network` parent, call `super().__init__` at the beginning
-        # # of this constructor and add layers using `self.add`.
-        #
-        # # TODO: After creating the model, call `self.compile` with appropriate arguments.
-        #
-        # self.tb_callback=tf.keras.callbacks.TensorBoard(args.logdir, update_freq=1000, profile_batch=1)
-        # self.tb_callback.on_train_end = lambda *_: None
 
     def train(self, cifar, args):
         self.fit(
@@ -135,10 +110,18 @@ if __name__ == "__main__":
 
     # Parse arguments
     parser = argparse.ArgumentParser()
+    parser.add_argument("--dropout", default=0.1, type=float, help="Dropout rate.")
+    parser.add_argument("--learning_rate", default=1e-4, type=float, help="Learning rate.")
+    parser.add_argument("--learning_rate_final", default=1e-6, type=float, help="Final learning rate.")
+    parser.add_argument("--decay", default="exponential", type=str, help="Decay types.")
+    parser.add_argument("--optimizer", default="SGD", type=str, help="Optimizer type.")
+    parser.add_argument("--momentum", default=0.001, type=float, help="SGD momentum")
+
     parser.add_argument("--batch_size", default=50, type=int, help="Batch size.")
-    parser.add_argument("--cnn", default=None, type=str, help="Configuration string for the CNN.")
     parser.add_argument("--epochs", default=30, type=int, help="Number of epochs.")
-    parser.add_argument("--threads", default=1, type=int, help="Maximum number of threads to use.")
+
+    parser.add_argument("--cnn", default=None, type=str, help="Configuration string for the CNN.")
+    parser.add_argument("--threads", default=11, type=int, help="Maximum number of threads to use.")
     args = parser.parse_args()
 
     # Fix random seeds
@@ -158,10 +141,12 @@ if __name__ == "__main__":
     cifar = CIFAR10()
 
     # Create the network and train
-    network = Network(args)
+    network = Network(args, cifar)
     network.train(cifar, args)
 
     # Generate test set annotations, but in args.logdir to allow parallel execution.
     with open(os.path.join(args.logdir, "cifar_competition_test.txt"), "w", encoding="utf-8") as out_file:
         for probs in network.predict(cifar.test.data["images"], batch_size=args.batch_size):
             print(np.argmax(probs), file=out_file)
+
+    print("RESULT={}".format(network.evaluate(cifar.dev.data["images"], cifar.dev.data["labels"])[1]))
