@@ -126,8 +126,8 @@ if __name__ == "__main__":
     # Parse arguments
     parser = argparse.ArgumentParser()
     parser.add_argument("--batch_size", default=16, type=int, help="Batch size.")
-    parser.add_argument("--clip_gradient", default=None, type=float, help="Norm for gradient clipping.")
-    parser.add_argument("--hidden_layer", default=None, type=int, help="Additional hidden layer after RNN.")
+    parser.add_argument("--clip_gradient", default=None, type=lambda x: None if x == "None" else float(x), help="Gradient clipping norm.",
+    parser.add_argument("--hidden_layer", default=None, type=lambda x: None if x == "None" else int(x), help="Dense layer after RNN.")
     parser.add_argument("--epochs", default=20, type=int, help="Number of epochs.")
     parser.add_argument("--rnn_cell", default="LSTM", type=str, help="RNN cell type.")
     parser.add_argument("--rnn_cell_dim", default=10, type=int, help="RNN cell dimension.")
